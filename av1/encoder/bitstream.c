@@ -1191,6 +1191,9 @@ static void write_tx_type(const AV1_COMMON *const cm, const MACROBLOCKD *xd,
   FRAME_CONTEXT *ec_ctx = cm->fc;
 #endif
 
+#if CONFIG_DCT_ONLY
+  assert(mbmi->tx_type == DCT_DCT);
+#endif
   if (!FIXED_TX_TYPE) {
 #if CONFIG_EXT_TX
     const TX_SIZE square_tx_size = txsize_sqr_map[tx_size];
