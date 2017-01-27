@@ -544,8 +544,6 @@ static double od_compute_dist(int qm, int activity_masking, od_coeff *x,
   double sum;
   sum = 0;
 
-  (void)qindex;
-
   assert(bsize_w >= 8 && bsize_h >= 8);
 
   if (qm == OD_FLAT_QM) {
@@ -596,10 +594,8 @@ static double od_compute_dist(int qm, int activity_masking, od_coeff *x,
     }
     /* Scale according to linear regression against SSE, for 8x8 blocks. */
     if (activity_masking) {
-      sum *= qindex >= 43
-                 ? 1.1
-                 : qindex <= 20 ? 2.6
-                                : 2.6 + (1.1 - 2.6) * (qindex - 20) / (43 - 20);
+      sum *= 1.4 + (1.0 - 1.4) * (qindex - 66) / (155 - 66)
+             + qindex >= 66 ? 0 : (qindex - 66) * (qindex - 66) / 800.;
     } else {
       sum *= qindex >= 55
                  ? 1.2
