@@ -601,10 +601,8 @@ static double od_compute_dist(int qm, int activity_masking, od_coeff *x,
                  : qindex <= 20 ? 2.6
                                 : 2.6 + (1.1 - 2.6) * (qindex - 20) / (43 - 20);
     } else {
-      sum *= qindex >= 55
-                 ? 1.2
-                 : qindex <= 20 ? 2.0
-                                : 2.0 + (1.2 - 2.0) * (qindex - 20) / (55 - 20);
+      sum *= 1.2 + (0.7 - 1.2) * (qindex - 80) / (186 - 80)
+             + qindex >= 80 ? 0 : (qindex - 80) * (qindex - 80) / 2930.;
     }
   }
   return sum;
