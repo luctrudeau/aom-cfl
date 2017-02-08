@@ -26,6 +26,7 @@
 #include "av1/common/pvq_state.h"
 #include "av1/decoder/decint.h"
 #include "av1/decoder/pvq_decoder.h"
+#include "av1/encoder/pvq_encoder.h"
 
 static void aom_decode_pvq_codeword(aom_reader *r, od_pvq_codeword_ctx *ctx,
  od_coeff *y, int n, int k) {
@@ -85,6 +86,36 @@ typedef struct {
   int nb_coeffs;
   int allow_flip;
 } cfl_ctx;
+
+static double od_pvq_rate(int theta, const od_pvq_codeword_ctx *pcc,
+ const od_coeff *y0, int k, int n) {
+  double rate;
+  if (k == 0) rate = 0;
+  else {
+    aom_writer w;
+    od_pvq_codeword_ctx cd;
+    int tell;
+#if CONFIG_DAALA_EC
+    od_ec_enc_init(&w.ec, 1000);
+#else
+# error "CONFIG_PVQ currently requires CONFIG_DAALA_EC."
+#endif
+    OD_COPY(&cd, pcc, 1);
+#if CONFIG_DAALA_EC
+    tell = od_ec_enc_tell_frac(&w.ec);
+#else
+# error "CONFIG_PVQ currently requires CONFIG_DAALA_EC."
+#endif
+    aom_encode_band_pvq_splits(&w, &cd, y0, n - (theta != -1), k, 0);
+#if CONFIG_DAALA_EC
+    rate = (od_ec_enc_tell_frac(&w.ec)-tell)/8.;
+    od_ec_enc_clear(&w.ec);
+#else
+# error "CONFIG_PVQ currently requires CONFIG_DAALA_EC."
+#endif
+  }
+  return rate;
+}
 
 /** Decodes a single vector of integers (eg, a partition within a
  *  coefficient block) encoded using PVQ
@@ -255,9 +286,22 @@ static void pvq_decode_partition(aom_reader *r,
 
   k = od_pvq_compute_k(qcg, itheta, theta, *noref, n, beta, nodesync);
   if (k != 0) {
+    od_pvq_codeword_ctx cd;
+    int j;
+    double rate;
     /* when noref==0, y is actually size n-1 */
+    OD_COPY(&cd, &adapt->pvq.pvq_codeword_ctx, 1);
     aom_decode_pvq_codeword(r, &adapt->pvq.pvq_codeword_ctx, y,
      n - !*noref, k);
+    if (k > 1 && y[0] != 0) for (j = 0; j < n - !*noref; j++) {
+      int sign = (y[j] > 0) - (y[j] < 0);
+      if (sign == 0) continue;
+      y[j] -= sign;
+      if (j == 0) rate = od_pvq_rate(*noref ? -1 : 0, &cd, y, k - 1, n);
+      else printf("%d %d %f\n", n - !*noref, j,
+                  rate - od_pvq_rate(*noref ? -1 : 0, &cd, y, k - 1, n));
+      y[j] += sign;
+    }
   }
   else {
     OD_CLEAR(y, n);
