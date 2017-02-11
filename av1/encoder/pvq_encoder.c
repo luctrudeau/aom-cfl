@@ -136,6 +136,10 @@ static double pvq_search_rdo_double(const od_val16 *xcoeff, int n, int k,
   /* Rough assumption for now, the last position costs about 3 bits more than
      the first. */
   delta_rate = 3./n;
+  switch (n) {
+    case 14: delta_rate = 1.7/n; break;
+    case 15: delta_rate = 2.3/n; break;
+  }
   /* Search one pulse at a time */
   for (; i < k - rdo_pulses; i++) {
     int pos;
