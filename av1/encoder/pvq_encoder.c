@@ -141,6 +141,8 @@ static double pvq_search_rdo_double(const od_val16 *xcoeff, int n, int k,
     case 15: delta_rate = 2.5/n; break;
     case 7: delta_rate = 1.3/n; break;
     case 8: delta_rate = 1.5/n; break;
+    case 31: delta_rate = 2.3/n; break;
+    case 32: delta_rate = 2.9/n; break;
   }
   /* Search one pulse at a time */
   for (; i < k - rdo_pulses; i++) {
