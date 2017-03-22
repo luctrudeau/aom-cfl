@@ -1,4 +1,5 @@
 /*
+ *
  * Copyright (c) 2016, Alliance for Open Media. All rights reserved
  *
  * This source code is subject to the terms of the BSD 2 Clause License and
@@ -1051,6 +1052,68 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
                           mode, dst, dst_stride, dst, dst_stride, blk_col,
                           blk_row, plane);
 
+#if CONFIG_CFL
+  if (plane != 0) {
+    assert(mbmi->uv_mode == DC_PRED);
+    const int tx_blk_size = tx_size_wide[tx_size];
+    const int N = tx_blk_size * tx_blk_size;
+    int y_avg = 0;
+    // TODO(ltrudeau) Force DC_PRED on Chroma?
+    int sLL = 0;
+    int sLC = 0;
+    int i, j;
+    int luma, c;
+
+    cfl_load(xd->cfl, dst, dst_stride, blk_row, blk_col, tx_blk_size);
+    for (j = 0; j < tx_blk_size; j++) {
+      for (i = 0; i < tx_blk_size; i++) {
+        y_avg += dst[dst_stride * j + i];
+      }
+    }
+    y_avg /= N;
+    // printf("avg %d\n", y_avg);
+
+    // TODO(ltrudeau) Pre-allocate RAM instead of declaring every time.
+    int y_pix[MAX_SB_SQUARE];
+    for (j = 0; j < tx_blk_size; j++) {
+      for (i = 0; i < tx_blk_size; i++) {
+        c = src[src_stride * j + i] - xd->cfl->dc_pred;
+        luma = dst[dst_stride * j + i] - y_avg;
+        y_pix[MAX_SB_SIZE * j + i] = luma;
+        sLL += luma * luma;
+        sLC += luma * c;
+      }
+    }
+
+    const double alpha = (sLL) ? sLC / (double)sLL : 0;
+    mbmi->cfl_alpha[plane - 1] = alpha;
+    const double br[] = { -0.75,  -0.375, -0.1875, -0.0625,
+                          0.0625, 0.1875, 0.375,   0.75 };
+    // TODO(ltrudeau) 9 values only 8 allowed!
+    const double sc[] = { -1, -0.5, -0.25, -0.125, 0, 0.125, 0.25, 0.5, 1 };
+    // printf("\n");
+    for (i = 0; i < 7; i++) {
+      if (alpha < br[i]) break;
+    }
+    assert(i < 8);
+    i = 4;
+
+    const double q_alpha = sc[i];
+    mbmi->cfl_alpha_ind[plane - 1] = i;
+    // printf("%f %f\n", alpha, q_alpha);
+
+    for (j = 0; j < tx_blk_size; j++) {
+      for (i = 0; i < tx_blk_size; i++) {
+        dst[dst_stride * j + i] =
+            (uint8_t)round(q_alpha * (double)y_pix[MAX_SB_SIZE * j + i]) +
+            xd->cfl->dc_pred;
+        // printf("%d, ", dst[dst_stride * j + i]);
+      }
+      // printf("\n");
+    }
+    // printf("\n");
+  }
+#endif
   if (check_subtract_block_size(tx1d_width, tx1d_height)) {
 #if CONFIG_AOM_HIGHBITDEPTH
     if (xd->cur_buf->flags & YV12_FLAG_HIGHBITDEPTH) {
@@ -1143,7 +1206,16 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
   // *(args->skip) == mbmi->skip
   if (!x->pvq_skip[plane]) *(args->skip) = 0;
 
+#if CONFIG_CFL
+  if (x->pvq_skip[plane]) {
+    if (plane == 0 && x->cfl_store_y) {
+      cfl_store(xd->cfl, dst, dst_stride, blk_row, blk_col, tx_blk_size);
+    }
+    return;
+  }
+#else
   if (x->pvq_skip[plane]) return;
+#endif
 
   // transform block size in pixels
   tx_blk_size = tx_size_wide[tx_size];
@@ -1185,6 +1257,13 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
   if (*eob) *(args->skip) = 0;
 #else
 // Note : *(args->skip) == mbmi->skip
+#endif
+#if CONFIG_CFL
+  if (plane == 0 && x->cfl_store_y) {
+    // TODO(ltrudeau) support rectangular transforms
+    const int tx_blk_size = tx_size_wide[tx_size];
+    cfl_store(xd->cfl, dst, dst_stride, blk_row, blk_col, tx_blk_size);
+  }
 #endif
 }
 

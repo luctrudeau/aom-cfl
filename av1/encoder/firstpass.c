@@ -537,6 +537,9 @@ void av1_first_pass(AV1_COMP *cpi, const struct lookahead_entry *source) {
   xd->mi[0] = cm->mi;
 
   av1_frame_init_quantizer(cpi);
+#if CONFIG_CFL
+  x->cfl_store_y = 0;
+#endif
 
 #if CONFIG_PVQ
   // For pass 1 of 2-pass encoding, init here for PVQ for now.

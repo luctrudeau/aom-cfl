@@ -1526,6 +1526,7 @@ static void write_intra_mode(FRAME_CONTEXT *frame_ctx, BLOCK_SIZE bsize,
 #endif
 }
 
+#if !CONFIG_CFL
 static void write_intra_uv_mode(FRAME_CONTEXT *frame_ctx,
                                 PREDICTION_MODE uv_mode, PREDICTION_MODE y_mode,
                                 aom_writer *w) {
@@ -1537,6 +1538,7 @@ static void write_intra_uv_mode(FRAME_CONTEXT *frame_ctx,
                   &intra_mode_encodings[uv_mode]);
 #endif
 }
+#endif
 
 static void pack_inter_mode_mvs(AV1_COMP *cpi, const MODE_INFO *mi,
                                 const int mi_row, const int mi_col,
@@ -1670,12 +1672,18 @@ static void pack_inter_mode_mvs(AV1_COMP *cpi, const MODE_INFO *mi,
         }
       }
     }
+#if !CONFIG_CFL
 #if CONFIG_CB4X4
     if (bsize >= BLOCK_8X8 || is_chroma_reference(mi_row, mi_col))
       write_intra_uv_mode(ec_ctx, mbmi->uv_mode, mode, w);
 #else  // !CONFIG_CB4X4
     write_intra_uv_mode(ec_ctx, mbmi->uv_mode, mode, w);
 #endif  // CONFIG_CB4X4
+#else
+    assert(0);
+// TODO(ltrudeau) One alpha per block or per transform size?
+// aom_write_literal(ec_ctx, mbmi->cfl_alpha_ind, 3);
+#endif
 
 #if CONFIG_EXT_INTRA
     write_intra_angle_info(xd, ec_ctx, w);
@@ -2012,12 +2020,22 @@ static void write_mb_modes_kf(AV1_COMMON *cm, const MACROBLOCKD *xd,
     }
   }
 
+#if !CONFIG_CFL
 #if CONFIG_CB4X4
   if (bsize >= BLOCK_8X8 || is_chroma_reference(mi_row, mi_col))
     write_intra_uv_mode(ec_ctx, mbmi->uv_mode, mbmi->mode, w);
 #else  // !CONFIG_CB4X4
   write_intra_uv_mode(ec_ctx, mbmi->uv_mode, mbmi->mode, w);
 #endif  // CONFIG_CB4X4
+#else
+  // printf("%d\n", mbmi->cfl_alpha_ind[0]);
+  assert(mbmi->cfl_alpha_ind[0] >= 0 && mbmi->cfl_alpha_ind[0] < 8);
+  assert(mbmi->cfl_alpha_ind[1] >= 0 && mbmi->cfl_alpha_ind[1] < 8);
+  printf("%f, %f\n", mbmi->cfl_alpha[0], mbmi->cfl_alpha[1]);
+  aom_write_literal(w, mbmi->cfl_alpha_ind[0], 3);
+  aom_write_literal(w, mbmi->cfl_alpha_ind[1], 3);
+//  printf("%d %d\n", mbmi->cfl_alpha_ind[0], mbmi->cfl_alpha_ind[1]);
+#endif
 
 #if CONFIG_EXT_INTRA
   write_intra_angle_info(xd, ec_ctx, w);
@@ -2343,6 +2361,10 @@ static void write_tokens_b(AV1_COMP *cpi, const TileInfo *const tile,
         }
 #endif  // CONFIG_RD_DEBUG
       } else {
+#if CONFIG_CFL
+// TODO(ltrudeau) One alpha per block or per transform size?
+// aom_write_literal(ec_ctx, mbmi->cfl_alpha_ind[plane - 1], 3);
+#endif
         TX_SIZE tx = get_tx_size(plane, xd);
         const int bkw = tx_size_wide_unit[tx];
         const int bkh = tx_size_high_unit[tx];

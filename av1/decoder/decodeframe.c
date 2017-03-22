@@ -551,9 +551,57 @@ static void predict_and_reconstruct_intra_block(
   if (mbmi->sb_type < BLOCK_8X8)
     if (plane == 0) mode = xd->mi[0]->bmi[block_idx].as_mode;
 #endif
+
   av1_predict_intra_block(xd, pd->width, pd->height, txsize_to_bsize[tx_size],
                           mode, dst, pd->dst.stride, dst, pd->dst.stride, col,
                           row, plane);
+#if CONFIG_CFL
+  if (plane != 0) {
+    const int dst_stride = pd->dst.stride;
+    assert(mbmi->uv_mode == DC_PRED);
+    const int tx_blk_size = tx_size_wide[tx_size];
+    const int N = tx_blk_size * tx_blk_size;
+    int y_avg = 0;
+    // int sLL = 0;
+    int i, j;
+    // int luma;
+
+    cfl_load(xd->cfl, dst, dst_stride, row, col, tx_blk_size);
+    for (j = 0; j < tx_blk_size; j++) {
+      for (i = 0; i < tx_blk_size; i++) {
+        y_avg += dst[dst_stride * j + i];
+      }
+    }
+    // TODO(ltrudeau) add rounding
+    y_avg /= N;
+
+    // TODO(ltrudeau) Pre-allocate RAM instead of declaring every time.
+    int y_pix[MAX_SB_SQUARE];
+    for (j = 0; j < tx_blk_size; j++) {
+      for (i = 0; i < tx_blk_size; i++) {
+        y_pix[MAX_SB_SIZE * j + i] = dst[dst_stride * j + i] - y_avg;
+        // TODO(ltrudeau) I could signal sLC instead of alpha and compute alpha
+        // sLL += luma * luma;
+      }
+    }
+    // printf("avg %d\n", y_avg);
+
+    const double sc[] = { -1, -0.5, -0.25, -0.125, 0, 0.125, 0.25, 0.5, 1 };
+    const double q_alpha = sc[mbmi->cfl_alpha_ind[plane - 1]];
+    // printf("%f\n", q_alpha);
+
+    for (j = 0; j < tx_blk_size; j++) {
+      for (i = 0; i < tx_blk_size; i++) {
+        dst[dst_stride * j + i] =
+            (uint8_t)round(q_alpha * (double)y_pix[MAX_SB_SIZE * j + i]) +
+            xd->cfl->dc_pred;
+        //   printf("%d, ", dst[pd->dst.stride * j + i]);
+      }
+      // printf("\n");
+    }
+    // printf("\n");
+  }
+#endif
 
   if (!mbmi->skip) {
     TX_TYPE tx_type = get_tx_type(plane_type, xd, block_idx, tx_size);
@@ -582,6 +630,13 @@ static void predict_and_reconstruct_intra_block(
     av1_pvq_decode_helper2(cm, xd, mbmi, plane, row, col, tx_size, tx_type);
 #endif
   }
+
+#if CONFIG_CFL
+  // TODO(ltrudeau) Manage rectangular transforms
+  const int tx_blk_size = tx_size_wide[tx_size];
+  if (plane == 0)
+    cfl_store(xd->cfl, dst, pd->dst.stride, row, col, tx_blk_size);
+#endif
 }
 
 #if CONFIG_VAR_TX && !CONFIG_COEF_INTERLEAVE
@@ -3493,6 +3548,9 @@ static const uint8_t *decode_tiles(AV1Decoder *pbi, const uint8_t *data,
 #if CONFIG_PVQ
                            td->pvq_ref_coeff,
 #endif
+#if CONFIG_CFL
+                           &td->cfl,
+#endif
                            td->dqcoeff);
 #if CONFIG_PVQ
       daala_dec_init(cm, &td->xd.daala_dec, &td->bit_reader);
@@ -3858,6 +3916,9 @@ static const uint8_t *decode_tiles_mt(AV1Decoder *pbi, const uint8_t *data,
         av1_init_macroblockd(cm, &twd->xd,
 #if CONFIG_PVQ
                              twd->pvq_ref_coeff,
+#endif
+#if CONFIG_CFL
+                             &twd->cfl,
 #endif
                              twd->dqcoeff);
 #if CONFIG_PVQ

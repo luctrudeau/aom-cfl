@@ -3804,7 +3804,15 @@ static int64_t rd_pick_intra_sby_mode(const AV1_COMP *const cpi, MACROBLOCK *x,
 #endif  // CONFIG_PVQ
     }
   }
-
+#if CONFIG_CFL
+  {
+    RD_STATS this_rd_stats;
+    x->cfl_store_y = 1;
+    txfm_rd_in_plane(x, cpi, &this_rd_stats, INT64_MAX, 0, bsize,
+                     mic->mbmi.tx_size, cpi->sf.use_fast_coef_costing);
+    x->cfl_store_y = 0;
+  }
+#endif
 #if CONFIG_PVQ
   od_encode_rollback(&x->daala_enc, &post_buf);
 #endif  // CONFIG_PVQ
@@ -4730,6 +4738,7 @@ static int rd_pick_filter_intra_sbuv(const AV1_COMP *const cpi, MACROBLOCK *x,
   mbmi->palette_mode_info.palette_size[1] = 0;
 #endif  // CONFIG_PALETTE
 
+#if !CONFIG_CFL
   for (mode = 0; mode < FILTER_INTRA_MODES; ++mode) {
     mbmi->filter_intra_mode_info.filter_intra_mode[1] = mode;
     if (!super_block_uvrd(cpi, x, &tokenonly_rd_stats, bsize, *best_rd))
@@ -4750,6 +4759,7 @@ static int rd_pick_filter_intra_sbuv(const AV1_COMP *const cpi, MACROBLOCK *x,
       filter_intra_selected_flag = 1;
     }
   }
+#endif
 
   if (filter_intra_selected_flag) {
     mbmi->uv_mode = DC_PRED;
@@ -4874,7 +4884,11 @@ static int64_t rd_pick_intra_sbuv_mode(const AV1_COMP *const cpi, MACROBLOCK *x,
 #if CONFIG_PALETTE
   pmi->palette_size[1] = 0;
 #endif  // CONFIG_PALETTE
+#if !CONFIG_CFL
   for (mode = DC_PRED; mode <= TM_PRED; ++mode) {
+#else
+  for (mode = DC_PRED; mode == DC_PRED; ++mode) {
+#endif
 #if CONFIG_EXT_INTRA
     const int is_directional_mode =
         av1_is_directional_mode(mode, mbmi->sb_type);

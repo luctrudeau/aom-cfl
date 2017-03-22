@@ -221,6 +221,9 @@ struct macroblock {
   // 4x4 blocks are coded.
   int rate_4x4[256];
 #endif
+#if CONFIG_CFL
+  int cfl_store_y;
+#endif
 };
 
 // Converts block_index for given transform size to index of the block in raster

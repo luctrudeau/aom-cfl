@@ -133,6 +133,7 @@ static PREDICTION_MODE read_intra_mode_y(AV1_COMMON *cm, MACROBLOCKD *xd,
   return y_mode;
 }
 
+#if !CONFIG_CFL
 static PREDICTION_MODE read_intra_mode_uv(AV1_COMMON *cm, MACROBLOCKD *xd,
                                           aom_reader *r,
                                           PREDICTION_MODE y_mode) {
@@ -155,6 +156,7 @@ static PREDICTION_MODE read_intra_mode_uv(AV1_COMMON *cm, MACROBLOCKD *xd,
   if (counts) ++counts->uv_mode[y_mode][uv_mode];
   return uv_mode;
 }
+#endif
 
 #if CONFIG_EXT_INTER
 static INTERINTRA_MODE read_interintra_mode(AV1_COMMON *cm, MACROBLOCKD *xd,
@@ -959,11 +961,18 @@ static void read_intra_frame_mode_info(AV1_COMMON *const cm,
   }
 #endif
 
+#if !CONFIG_CFL
 #if CONFIG_CB4X4
   if (bsize >= BLOCK_8X8 || is_chroma_reference(mi_row, mi_col))
     mbmi->uv_mode = read_intra_mode_uv(cm, xd, r, mbmi->mode);
 #else
   mbmi->uv_mode = read_intra_mode_uv(cm, xd, r, mbmi->mode);
+#endif
+#else
+  mbmi->cfl_alpha_ind[0] = aom_read_literal(r, 3, "cfl:alpha");
+  mbmi->cfl_alpha_ind[1] = aom_read_literal(r, 3, "cfl:alpha");
+  mbmi->uv_mode = DC_PRED;
+//  printf("%d %d\n", mbmi->cfl_alpha_ind[0], mbmi->cfl_alpha_ind[1]);
 #endif
 
 #if CONFIG_EXT_INTRA
@@ -1290,11 +1299,20 @@ static void read_intra_block_mode_info(AV1_COMMON *const cm, const int mi_row,
   }
 #endif
 
+#if !CONFIG_CFL
 #if CONFIG_CB4X4
   if (bsize >= BLOCK_8X8 || is_chroma_reference(mi_row, mi_col))
     mbmi->uv_mode = read_intra_mode_uv(cm, xd, r, mbmi->mode);
 #else
   mbmi->uv_mode = read_intra_mode_uv(cm, xd, r, mbmi->mode);
+  (void)mi_row;
+  (void)mi_col;
+#endif
+#else
+  mbmi->cfl_alpha_ind[0] = aom_read_literal(r, 3, "cfl:alpha");
+  mbmi->cfl_alpha_ind[1] = aom_read_literal(r, 3, "cfl:alpha");
+  //  printf("Block %d %d\n", mbmi->cfl_alpha_ind[0], mbmi->cfl_alpha_ind[1]);
+  mbmi->uv_mode = DC_PRED;
   (void)mi_row;
   (void)mi_col;
 #endif

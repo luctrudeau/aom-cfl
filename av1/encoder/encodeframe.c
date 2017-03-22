@@ -1827,7 +1827,9 @@ static void rd_pick_sb_modes(const AV1_COMP *const cpi, TileDataEnc *tile_data,
   x->pvq_speed = 1;
   x->pvq_coded = 0;
 #endif
-
+#if CONFIG_CFL
+  x->cfl_store_y = 0;
+#endif
   set_offsets(cpi, tile_info, x, mi_row, mi_col, bsize);
   mbmi = &xd->mi[0]->mbmi;
   mbmi->sb_type = bsize;
@@ -4524,6 +4526,10 @@ static void rd_pick_partition(const AV1_COMP *const cpi, ThreadData *td,
   *rate_nocoef = best_rate_nocoef;
 #endif  // CONFIG_SUPERTX
 
+#if CONFIG_CFL
+  x->cfl_store_y = 1;
+#endif
+
   if (best_rdc.rate < INT_MAX && best_rdc.dist < INT64_MAX &&
       pc_tree->index != 3) {
     if (bsize == cm->sb_size) {
@@ -4537,6 +4543,10 @@ static void rd_pick_partition(const AV1_COMP *const cpi, ThreadData *td,
                 pc_tree, NULL);
     }
   }
+
+#if CONFIG_CFL
+  x->cfl_store_y = 0;
+#endif
 
   if (bsize == cm->sb_size) {
 #if !CONFIG_PVQ && !CONFIG_LV_MAP
@@ -4964,6 +4974,11 @@ void av1_encode_tile(AV1_COMP *cpi, ThreadData *td, int tile_row,
   this_tile->tctx = *cm->fc;
   td->mb.e_mbd.tile_ctx = &this_tile->tctx;
 #endif  // #if CONFIG_EC_ADAPT
+
+#if CONFIG_CFL
+  td->mb.e_mbd.cfl = &this_tile->cfl;
+  memset(&this_tile->cfl.y_pix, 0, sizeof(uint8_t) * MAX_SB_SQUARE);
+#endif
 
   for (mi_row = tile_info->mi_row_start; mi_row < tile_info->mi_row_end;
        mi_row += cm->mib_size) {
@@ -5650,13 +5665,20 @@ static void encode_superblock(const AV1_COMP *const cpi, ThreadData *td,
   x->pvq_speed = 0;
   x->pvq_coded = (dry_run == OUTPUT_ENABLED) ? 1 : 0;
 #endif
-
+#if CONFIG_CFL
+  x->cfl_store_y = (dry_run == OUTPUT_ENABLED) ? 1 : 0;
+#endif
   if (!is_inter) {
     int plane;
     mbmi->skip = 1;
     for (plane = 0; plane < MAX_MB_PLANE; ++plane)
       av1_encode_intra_block_plane((AV1_COMMON *)cm, x, block_size, plane, 1,
                                    mi_row, mi_col);
+
+#if CONFIG_CFL
+// x->cfl_store_y = 0;
+#endif
+
     if (!dry_run)
       sum_intra_stats(td->counts, mi, xd->above_mi, xd->left_mi,
                       frame_is_intra_only(cm), mi_row, mi_col);

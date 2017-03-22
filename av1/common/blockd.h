@@ -381,6 +381,10 @@ typedef struct {
   WarpedMotionParams wm_params[2];
 #endif  // CONFIG_WARPED_MOTION
 
+#if CONFIG_CFL
+  int cfl_alpha_ind[2];
+  double cfl_alpha[2];
+#endif
   BOUNDARY_TYPE boundary_info;
 } MB_MODE_INFO;
 
@@ -496,6 +500,22 @@ typedef struct RefBuffer {
   struct scale_factors sf;
 } RefBuffer;
 
+#if CONFIG_CFL
+typedef struct {
+  // Pixel buffer containing the Luma pixel used as the prediction for Chroma.
+  // It also contains the row above and the column to the left of the block.
+  // This information is needed for model fitting.
+  uint8_t y_pix[MAX_SB_SQUARE];
+
+  // Current height and width of the pixel buffer (excluding the above row and
+  // the column to the left of the block).
+  int y_height, y_width;
+
+  int is_left_summed, is_above_summed;
+  int dc_pred;
+} CFL_CTX;
+#endif
+
 typedef struct macroblockd {
   struct macroblockd_plane plane[MAX_MB_PLANE];
   uint8_t bmode_blocks_wl;
@@ -566,6 +586,9 @@ typedef struct macroblockd {
 #if CONFIG_AOM_HIGHBITDEPTH
   /* Bit depth: 8, 10, 12 */
   int bd;
+#endif
+#if CONFIG_CFL
+  CFL_CTX *cfl;
 #endif
 
   int qindex[MAX_SEGMENTS];
