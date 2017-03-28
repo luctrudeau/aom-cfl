@@ -1104,6 +1104,9 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
         if (alpha < br[i]) break;
       }
       mbmi->cfl_alpha_ind[plane - 1] = i;
+      mbmi->cfl_sLC[plane - 1] = sLC;
+      mbmi->cfl_sLL[plane - 1] = sLL;
+      mbmi->cfl_alpha[plane - 1] = alpha;
     }
 
     // Replicate decoder behavior

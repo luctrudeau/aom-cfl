@@ -2035,9 +2035,11 @@ static void write_mb_modes_kf(AV1_COMMON *cm, const MACROBLOCKD *xd,
                               23105, 28397, 31537, 32768 };
   aom_write_symbol(w, mbmi->cfl_alpha_ind[0], cfl_cdf, 8);
   aom_write_symbol(w, mbmi->cfl_alpha_ind[1], cfl_cdf, 8);
-// aom_write_literal(w, mbmi->cfl_alpha_ind[0], 3);
-// aom_write_literal(w, mbmi->cfl_alpha_ind[1], 3);
-// printf("%d %d\n", mbmi->cfl_alpha_ind[0], mbmi->cfl_alpha_ind[1]);
+  // aom_write_literal(w, mbmi->cfl_alpha_ind[0], 3);
+  // aom_write_literal(w, mbmi->cfl_alpha_ind[1], 3);
+  printf("%f %f %f %f %f %f\n", mbmi->cfl_alpha[0], mbmi->cfl_sLC[0],
+         mbmi->cfl_sLL[0], mbmi->cfl_alpha[1], mbmi->cfl_sLC[1],
+         mbmi->cfl_sLL[1]);
 #endif
 
 #if CONFIG_EXT_INTRA
