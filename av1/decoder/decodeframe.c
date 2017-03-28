@@ -586,7 +586,8 @@ static void predict_and_reconstruct_intra_block(
     }
     // printf("avg %d\n", y_avg);
 
-    const double sc[] = { -1, -0.5, -0.25, -0.125, 0, 0.125, 0.25, 0.5, 1 };
+    const double sc[] = { -0.71563, -0.26877, -0.12428, -0.03977,
+                          0.022192, 0.10706,  0.28189,  1.0105 };
     const double q_alpha = sc[mbmi->cfl_alpha_ind[plane - 1]];
     // printf("%f\n", q_alpha);
 

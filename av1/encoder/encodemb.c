@@ -1086,11 +1086,10 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
     }
 
     const double alpha = (sLL) ? sLC / (double)sLL : 0;
-    mbmi->cfl_alpha[plane - 1] = alpha;
-    const double br[] = { -0.75,  -0.375, -0.1875, -0.0625,
-                          0.0625, 0.1875, 0.375,   0.75 };
-    // TODO(ltrudeau) 9 values only 8 allowed!
-    const double sc[] = { -1, -0.5, -0.25, -0.125, 0, 0.125, 0.25, 0.5, 1 };
+    const double br[] = { -0.4033,  -0.18420, -0.078335, -0.005505,
+                          0.059694, 0.17399,  0.48718 };
+    const double sc[] = { -0.71563, -0.26877, -0.12428, -0.03977,
+                          0.022192, 0.10706,  0.28189,  1.0105 };
     // printf("\n");
     for (i = 0; i < 7; i++) {
       if (alpha < br[i]) break;

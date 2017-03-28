@@ -2031,9 +2031,12 @@ static void write_mb_modes_kf(AV1_COMMON *cm, const MACROBLOCKD *xd,
   // printf("%d\n", mbmi->cfl_alpha_ind[0]);
   assert(mbmi->cfl_alpha_ind[0] >= 0 && mbmi->cfl_alpha_ind[0] < 8);
   assert(mbmi->cfl_alpha_ind[1] >= 0 && mbmi->cfl_alpha_ind[1] < 8);
-  printf("%f, %f\n", mbmi->cfl_alpha[0], mbmi->cfl_alpha[1]);
-  aom_write_literal(w, mbmi->cfl_alpha_ind[0], 3);
-  aom_write_literal(w, mbmi->cfl_alpha_ind[1], 3);
+  aom_cdf_prob cfl_cdf[8] = { 1610,  5349,  10401, 16420,
+                              23105, 28397, 31537, 32768 };
+  aom_write_symbol(w, mbmi->cfl_alpha_ind[0], cfl_cdf, 8);
+  aom_write_symbol(w, mbmi->cfl_alpha_ind[1], cfl_cdf, 8);
+// aom_write_literal(w, mbmi->cfl_alpha_ind[0], 3);
+// aom_write_literal(w, mbmi->cfl_alpha_ind[1], 3);
 //  printf("%d %d\n", mbmi->cfl_alpha_ind[0], mbmi->cfl_alpha_ind[1]);
 #endif
 
@@ -4059,7 +4062,8 @@ static uint32_t write_tiles(AV1_COMP *const cpi, uint8_t *const dst,
           // Copy uncompressed header
           memmove(dst + old_total_size, dst,
                   uncompressed_hdr_size * sizeof(uint8_t));
-          // Write the number of tiles in the group into the last uncompressed
+          // Write the number of tiles in the group into the last
+          // uncompressed
           // header before the one we've just inserted
           aom_wb_overwrite_literal(&tg_params_wb, tile_idx - tile_count,
                                    n_log2_tiles);
@@ -4078,7 +4082,8 @@ static uint32_t write_tiles(AV1_COMP *const cpi, uint8_t *const dst,
           // Copy uncompressed header
           memmove(dst + total_size, dst,
                   uncompressed_hdr_size * sizeof(uint8_t));
-          // Write the number of tiles in the group into the last uncompressed
+          // Write the number of tiles in the group into the last
+          // uncompressed
           // header
           aom_wb_overwrite_literal(&tg_params_wb, tile_idx - tile_count,
                                    n_log2_tiles);
