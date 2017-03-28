@@ -560,8 +560,11 @@ static void predict_and_reconstruct_intra_block(
   if (plane != 0) {
     assert(mbmi->uv_mode == DC_PRED);
     // Sorted Centers
-    const double sc[] = { -0.71563, -0.26877, -0.12428, -0.03977,
-                          0.022192, 0.10706,  0.28189,  1.0105 };
+    // const double sc[] = { -0.71563, -0.26877, -0.12428, -0.03977,
+    //                     0.022192, 0.10706,  0.28189,  1.0105 };
+
+    // Sorted Centers
+    const double sc[] = { -1.5, -0.5, -0.125, 0, 0.125, 0.5, 1.5, 42 };
 
     const int dst_stride = pd->dst.stride;
     const int tx_block_width = tx_size_wide[tx_size];

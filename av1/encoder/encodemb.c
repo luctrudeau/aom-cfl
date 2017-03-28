@@ -1056,11 +1056,16 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
   if (plane != 0) {
     assert(mbmi->uv_mode == DC_PRED);
     // Break points
-    const double br[] = { -0.4033,  -0.18420, -0.078335, -0.005505,
-                          0.059694, 0.17399,  0.48718 };
+    // const double br[] = { -0.4033,  -0.18420, -0.078335, -0.005505,
+    //                       0.059694, 0.17399,  0.48718 };
     // Sorted Centers
-    const double sc[] = { -0.71563, -0.26877, -0.12428, -0.03977,
-                          0.022192, 0.10706,  0.28189,  1.0105 };
+    // const double sc[] = { -0.71563, -0.26877, -0.12428, -0.03977,
+    //                       0.022192, 0.10706,  0.28189,  1.0105 };
+    // Break points
+    const double br[] = { -0.75, -0.25, -0.0625, 0.0625, 0.25, 0.75 };
+    // Sorted Centers
+    const double sc[] = { -1.5, -0.5, -0.125, 0, 0.125, 0.5, 1.5, 42 };
+
     const int tx_block_width = tx_size_wide[tx_size];
     const int tx_block_height = tx_size_high[tx_size];
     const int N = tx_block_height * tx_block_width;
@@ -1100,13 +1105,21 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
 
       // Compute alpha over the entire block
       const double alpha = (sLL) ? sLC / (double)sLL : 0;
-      for (i = 0; i < 7; i++) {
+      for (i = 0; i < 6; i++) {
         if (alpha < br[i]) break;
       }
       mbmi->cfl_alpha_ind[plane - 1] = i;
       mbmi->cfl_sLC[plane - 1] = sLC;
       mbmi->cfl_sLL[plane - 1] = sLL;
       mbmi->cfl_alpha[plane - 1] = alpha;
+
+      /* double q_alpha = sc[mbmi->cfl_alpha_ind[plane - 1]];
+       double diff = alpha - q_alpha;
+       double sse = diff * diff; */
+      //  if (sse > 1) {
+      // printf("(%f - %f)^2 = %f\n", alpha, q_alpha, sse);
+      // mbmi->cfl_alpha_ind[plane - 1] = 4;
+      //}
     }
 
     // Replicate decoder behavior
