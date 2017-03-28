@@ -2074,10 +2074,11 @@ static void build_intra_predictors(const MACROBLOCKD *xd, const uint8_t *ref,
       memset(left_col, 129, bs << need_bottom);
     }
 #if CONFIG_CFL
-    if (plane != 0 && xd->cfl->is_left_summed) {
+    CFL_CTX *const cfl = xd->cfl;
+    if (cfl->is_dc_computed && cfl->is_left_summed) {
       int sum = 0;
       for (i = 0; i < bs; i++) sum += left_col[i];
-      xd->cfl->dc_pred += sum;
+      cfl->dc_pred += sum;
     }
 #endif
   }
@@ -2110,7 +2111,8 @@ static void build_intra_predictors(const MACROBLOCKD *xd, const uint8_t *ref,
       memset(above_row, 127, bs << need_right);
     }
 #if CONFIG_CFL
-    if (plane != 0 && xd->cfl->is_above_summed) {
+    CFL_CTX *const cfl = xd->cfl;
+    if (cfl->is_dc_computed && xd->cfl->is_above_summed) {
       int sum = 0;
       for (i = 0; i < bs; i++) sum += above_row[i];
       xd->cfl->dc_pred += sum;
@@ -2273,7 +2275,9 @@ void av1_predict_intra_block(const MACROBLOCKD *xd, int wpx, int hpx,
   TX_SIZE tx_size = max_txsize_lookup[bsize];
   assert(tx_size < TX_SIZES);
 #if CONFIG_CFL
-  if (plane != 0) {
+  CFL_CTX *const cfl = xd->cfl;
+  cfl->is_dc_computed = plane != 0 && col_off == 0 && row_off == 0;
+  if (cfl->is_dc_computed) {
     xd->cfl->dc_pred = 0;
     xd->cfl->is_left_summed = 1;
     xd->cfl->is_above_summed = 1;
@@ -2327,7 +2331,7 @@ void av1_predict_intra_block(const MACROBLOCKD *xd, int wpx, int hpx,
 #endif  // CONFIG_AOM_HIGHBITDEPTH
         }
 #if CONFIG_CFL
-        if (plane != 0) xd->cfl->is_above_summed = 0;
+        if (cfl->is_dc_computed) xd->cfl->is_above_summed = 0;
 #endif
         // Predict the bottom square sub-block.
         predict_square_intra_block(xd, wpx, hpx, tx_size, mode, src_2,
@@ -2385,7 +2389,7 @@ void av1_predict_intra_block(const MACROBLOCKD *xd, int wpx, int hpx,
 #endif  // CONFIG_AOM_HIGHBITDEPTH
         }
 #if CONFIG_CFL
-        if (plane != 0) xd->cfl->is_left_summed = 0;
+        if (cfl->is_dc_computed) xd->cfl->is_left_summed = 0;
 #endif
         // Predict the right square sub-block.
         predict_square_intra_block(xd, wpx, hpx, tx_size, mode, src_2,
@@ -2416,7 +2420,10 @@ void av1_predict_intra_block(const MACROBLOCKD *xd, int wpx, int hpx,
         // (CONFIG_EXT_INTER)
   }
 #if CONFIG_CFL
-  if (plane != 0) xd->cfl->dc_pred /= block_width + block_height;
+  if (cfl->is_dc_computed) {
+    const int N = block_width + block_height;
+    cfl->dc_pred = (cfl->dc_pred + (N >> 1)) / N;
+  }
 #endif
 }
 
@@ -2426,16 +2433,17 @@ void av1_init_intra_predictors(void) {
 
 #if CONFIG_CFL
 void cfl_load(const CFL_CTX *const cfl, uint8_t *const output,
-              int output_stride, int row, int col, int tx_blk_size) {
+              int output_stride, int row, int col, int block_width,
+              int block_height) {
   // TODO(ltrudeau) adjust to Chroma subsampling (hardcoded to 4:2:0)
   const int step = 2;
   const int tx_off_log2 = tx_size_wide_log2[0];
   const uint8_t *const y_pix =
       &cfl->y_pix[(step * (row * MAX_SB_SIZE + col)) << tx_off_log2];
 
-  const int uv_width = step * ((col << tx_off_log2) + tx_blk_size);
+  const int uv_width = step * ((col << tx_off_log2) + block_width);
   const int diff_width = (uv_width - cfl->y_width) / step;
-  const int uv_height = step * ((row << tx_off_log2) + tx_blk_size);
+  const int uv_height = step * ((row << tx_off_log2) + block_width);
   const int diff_height = (uv_height - cfl->y_height) / step;
 
   int pred_row_offset = 0;
@@ -2443,8 +2451,8 @@ void cfl_load(const CFL_CTX *const cfl, uint8_t *const output,
   int top_left, bot_left;
   int i, j;
 
-  for (j = 0; j < tx_blk_size; j++) {
-    for (i = 0; i < tx_blk_size; i++) {
+  for (j = 0; j < block_height; j++) {
+    for (i = 0; i < block_width; i++) {
       top_left = step * (pred_row_offset + i);
       bot_left = top_left + MAX_SB_SIZE;
       // Average pixels in 2x2 grid
@@ -2467,9 +2475,9 @@ void cfl_load(const CFL_CTX *const cfl, uint8_t *const output,
   // frame, the columns will be copied over them.
   if (diff_width > 0) {
     int last_pixel;
-    output_row_offset = tx_blk_size - diff_width;
+    output_row_offset = block_width - diff_width;
 
-    for (j = 0; j < tx_blk_size; j++) {
+    for (j = 0; j < block_height; j++) {
       last_pixel = output_row_offset - 1;
       for (i = 0; i < diff_width; i++) {
         output[output_row_offset + i] = output[last_pixel];
@@ -2482,7 +2490,7 @@ void cfl_load(const CFL_CTX *const cfl, uint8_t *const output,
     output_row_offset = diff_height * output_stride;
     const int last_row_offset = output_row_offset - output_stride;
     for (j = 0; j < diff_height; j++) {
-      for (i = 0; i < tx_blk_size; i++) {
+      for (i = 0; i < block_width; i++) {
         output[output_row_offset + i] = output[last_row_offset + i];
       }
       output_row_offset += output_stride;

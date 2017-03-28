@@ -510,6 +510,7 @@ typedef struct {
   // the column to the left of the block).
   int y_height, y_width;
 
+  int is_dc_computed;
   int is_left_summed, is_above_summed;
   int dc_pred;
 } CFL_CTX;

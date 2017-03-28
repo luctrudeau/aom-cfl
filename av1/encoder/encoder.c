@@ -109,6 +109,10 @@ FILE *keyfile;
 typedef enum { Y, U, V, ALL } STAT_TYPE;
 #endif  // CONFIG_INTERNAL_STATS
 
+#if CONFIG_CFL
+CFL_CTX NULL_CFL;
+#endif
+
 static INLINE void Scale2Ratio(AOM_SCALING mode, int *hr, int *hs) {
   switch (mode) {
     case NORMAL:
@@ -929,7 +933,7 @@ static void update_frame_size(AV1_COMP *cpi) {
                        NULL,
 #endif
 #if CONFIG_CFL
-                       NULL,
+                       &NULL_CFL,
 #endif
                        NULL);
   memset(cpi->mbmi_ext_base, 0,

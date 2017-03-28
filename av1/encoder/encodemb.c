@@ -1055,62 +1055,90 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
 #if CONFIG_CFL
   if (plane != 0) {
     assert(mbmi->uv_mode == DC_PRED);
-    const int tx_blk_size = tx_size_wide[tx_size];
-    const int N = tx_blk_size * tx_blk_size;
+    // Break points
+    const double br[] = { -0.4033,  -0.18420, -0.078335, -0.005505,
+                          0.059694, 0.17399,  0.48718 };
+    // Sorted Centers
+    const double sc[] = { -0.71563, -0.26877, -0.12428, -0.03977,
+                          0.022192, 0.10706,  0.28189,  1.0105 };
+    const int tx_block_width = tx_size_wide[tx_size];
+    const int tx_block_height = tx_size_high[tx_size];
+    const int N = tx_block_height * tx_block_width;
     int y_avg = 0;
-    // TODO(ltrudeau) Force DC_PRED on Chroma?
-    int sLL = 0;
-    int sLC = 0;
     int i, j;
-    int luma, c;
+    int luma;
 
-    cfl_load(xd->cfl, dst, dst_stride, blk_row, blk_col, tx_blk_size);
-    for (j = 0; j < tx_blk_size; j++) {
-      for (i = 0; i < tx_blk_size; i++) {
+    // Compute alpha on first block but do it over the entire block
+    if (blk_col == 0 && blk_row == 0) {
+      const int block_width = block_size_wide[plane_bsize];
+      const int block_height = block_size_high[plane_bsize];
+      const int num_blk_pel = block_width * block_height;
+      int sLL = 0;
+      int sLC = 0;
+      int chroma;
+
+      // Load CfL Prediction over the entire block
+      cfl_load(xd->cfl, dst, dst_stride, 0, 0, block_width, block_height);
+
+      // Average Luma over the entire block
+      for (j = 0; j < block_height; j++) {
+        for (i = 0; i < block_width; i++) {
+          y_avg += dst[dst_stride * j + i];
+        }
+      }
+      y_avg = (y_avg + (num_blk_pel >> 1)) / num_blk_pel;
+
+      // Luma and Chroma sums over the entire block
+      for (j = 0; j < block_height; j++) {
+        for (i = 0; i < block_width; i++) {
+          chroma = src[src_stride * j + i] - xd->cfl->dc_pred;
+          luma = dst[dst_stride * j + i] - y_avg;
+          sLL += luma * luma;
+          sLC += luma * chroma;
+        }
+      }
+
+      // Compute alpha over the entire block
+      const double alpha = (sLL) ? sLC / (double)sLL : 0;
+      for (i = 0; i < 7; i++) {
+        if (alpha < br[i]) break;
+      }
+      mbmi->cfl_alpha_ind[plane - 1] = i;
+    }
+
+    // Replicate decoder behavior
+    const double q_alpha = sc[mbmi->cfl_alpha_ind[plane - 1]];
+    cfl_load(xd->cfl, dst, dst_stride, blk_row, blk_col, tx_block_width,
+             tx_block_height);
+
+    // Reset Luma average
+    y_avg = 0;
+
+    // Compute Luma average only over transform block
+    for (j = 0; j < tx_block_height; j++) {
+      for (i = 0; i < tx_block_width; i++) {
         y_avg += dst[dst_stride * j + i];
       }
     }
-    y_avg /= N;
-    // printf("avg %d\n", y_avg);
+    y_avg = (y_avg + (N >> 1)) / N;
 
     // TODO(ltrudeau) Pre-allocate RAM instead of declaring every time.
     int y_pix[MAX_SB_SQUARE];
-    for (j = 0; j < tx_blk_size; j++) {
-      for (i = 0; i < tx_blk_size; i++) {
-        c = src[src_stride * j + i] - xd->cfl->dc_pred;
-        luma = dst[dst_stride * j + i] - y_avg;
-        y_pix[MAX_SB_SIZE * j + i] = luma;
-        sLL += luma * luma;
-        sLC += luma * c;
+
+    // Subtract average Luma from CfL prediction
+    for (j = 0; j < tx_block_height; j++) {
+      for (i = 0; i < tx_block_width; i++) {
+        y_pix[MAX_SB_SIZE * j + i] = dst[dst_stride * j + i] - y_avg;
       }
     }
 
-    const double alpha = (sLL) ? sLC / (double)sLL : 0;
-    const double br[] = { -0.4033,  -0.18420, -0.078335, -0.005505,
-                          0.059694, 0.17399,  0.48718 };
-    const double sc[] = { -0.71563, -0.26877, -0.12428, -0.03977,
-                          0.022192, 0.10706,  0.28189,  1.0105 };
-    // printf("\n");
-    for (i = 0; i < 7; i++) {
-      if (alpha < br[i]) break;
-    }
-    assert(i < 8);
-    i = 4;
-
-    const double q_alpha = sc[i];
-    mbmi->cfl_alpha_ind[plane - 1] = i;
-    // printf("%f %f\n", alpha, q_alpha);
-
-    for (j = 0; j < tx_blk_size; j++) {
-      for (i = 0; i < tx_blk_size; i++) {
+    for (j = 0; j < tx_block_height; j++) {
+      for (i = 0; i < tx_block_width; i++) {
         dst[dst_stride * j + i] =
             (uint8_t)round(q_alpha * (double)y_pix[MAX_SB_SIZE * j + i]) +
             xd->cfl->dc_pred;
-        // printf("%d, ", dst[dst_stride * j + i]);
       }
-      // printf("\n");
     }
-    // printf("\n");
   }
 #endif
   if (check_subtract_block_size(tx1d_width, tx1d_height)) {

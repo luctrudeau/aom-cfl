@@ -1,4 +1,5 @@
 /*
+ *
  * Copyright (c) 2016, Alliance for Open Media. All rights reserved
  *
  * This source code is subject to the terms of the BSD 2 Clause License and
@@ -557,50 +558,49 @@ static void predict_and_reconstruct_intra_block(
                           row, plane);
 #if CONFIG_CFL
   if (plane != 0) {
-    const int dst_stride = pd->dst.stride;
     assert(mbmi->uv_mode == DC_PRED);
-    const int tx_blk_size = tx_size_wide[tx_size];
-    const int N = tx_blk_size * tx_blk_size;
+    // Sorted Centers
+    const double sc[] = { -0.71563, -0.26877, -0.12428, -0.03977,
+                          0.022192, 0.10706,  0.28189,  1.0105 };
+
+    const int dst_stride = pd->dst.stride;
+    const int tx_block_width = tx_size_wide[tx_size];
+    const int tx_block_height = tx_size_high[tx_size];
+    const int N = tx_block_height * tx_block_width;
     int y_avg = 0;
     // int sLL = 0;
     int i, j;
     // int luma;
+    const double q_alpha = sc[mbmi->cfl_alpha_ind[plane - 1]];
 
-    cfl_load(xd->cfl, dst, dst_stride, row, col, tx_blk_size);
-    for (j = 0; j < tx_blk_size; j++) {
-      for (i = 0; i < tx_blk_size; i++) {
+    cfl_load(xd->cfl, dst, dst_stride, row, col, tx_block_width,
+             tx_block_height);
+    for (j = 0; j < tx_block_height; j++) {
+      for (i = 0; i < tx_block_width; i++) {
         y_avg += dst[dst_stride * j + i];
       }
     }
-    // TODO(ltrudeau) add rounding
-    y_avg /= N;
+    y_avg = (y_avg + (N >> 1)) / N;
 
     // TODO(ltrudeau) Pre-allocate RAM instead of declaring every time.
     int y_pix[MAX_SB_SQUARE];
-    for (j = 0; j < tx_blk_size; j++) {
-      for (i = 0; i < tx_blk_size; i++) {
+
+    // Subtract average Luma from CfL prediction
+    for (j = 0; j < tx_block_width; j++) {
+      for (i = 0; i < tx_block_height; i++) {
         y_pix[MAX_SB_SIZE * j + i] = dst[dst_stride * j + i] - y_avg;
         // TODO(ltrudeau) I could signal sLC instead of alpha and compute alpha
         // sLL += luma * luma;
       }
     }
-    // printf("avg %d\n", y_avg);
 
-    const double sc[] = { -0.71563, -0.26877, -0.12428, -0.03977,
-                          0.022192, 0.10706,  0.28189,  1.0105 };
-    const double q_alpha = sc[mbmi->cfl_alpha_ind[plane - 1]];
-    // printf("%f\n", q_alpha);
-
-    for (j = 0; j < tx_blk_size; j++) {
-      for (i = 0; i < tx_blk_size; i++) {
+    for (j = 0; j < tx_block_width; j++) {
+      for (i = 0; i < tx_block_height; i++) {
         dst[dst_stride * j + i] =
             (uint8_t)round(q_alpha * (double)y_pix[MAX_SB_SIZE * j + i]) +
             xd->cfl->dc_pred;
-        //   printf("%d, ", dst[pd->dst.stride * j + i]);
       }
-      // printf("\n");
     }
-    // printf("\n");
   }
 #endif
 
