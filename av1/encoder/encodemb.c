@@ -1076,9 +1076,14 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
     // -0.0052665, 0.0672287, 0.2076831, 0.8097277
     //};
 
-    const double br[] = { -0.208555, -0.017853, 0.152991 };
+    const double br_u[] = { -0.258678, -0.047629, 0.109711 };
+    const double br_v[] = { -0.140601, 0.013699, 0.211475 };
+    const double *br = (plane == 1) ? br_u : br_v;
     // Sorted Centers
-    const double sc[] = { -0.442890, -0.093906, 0.047935, 0.436877 };
+    const double sc_u[] = { -0.494667, -0.136804, 0.020796, 0.314857 };
+    const double sc_v[] = { -0.363201, -0.047927, 0.083534, 0.568326 };
+    const double *sc = (plane == 1) ? sc_u : sc_v;
+
     const int tx_block_width = tx_size_wide[tx_size];
     const int tx_block_height = tx_size_high[tx_size];
     const int N = tx_block_height * tx_block_width;

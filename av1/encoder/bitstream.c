@@ -2037,15 +2037,18 @@ static void write_mb_modes_kf(AV1_COMMON *cm, const MACROBLOCKD *xd,
     aom_cdf_prob cfl_cdf[8] = { 1361,  4472,  8761,  14086,
                                 20886, 27080, 31164, 32768 };
                                 */
-  aom_cdf_prob cfl_cdf[4] = { 5129, 15974, 28204, 32768 };
+  aom_cdf_prob cfl_cdf[16] = { 666,   1368,  2753,  5132,  6026,  8640,
+                               14410, 15550, 16845, 24224, 27401, 27679,
+                               30151, 31961, 32484, 32768 };
   // const int cfl_skip =
   // const int cfl_skip =
   //    (mbmi->cfl_alpha_ind[0] == 4 && mbmi->cfl_alpha_ind[1] == 4);
   // if (cfl_skip) {
   //  aom_write_symbol(w, 42, cfl_cdf, 8);
   //} else {
-  aom_write_symbol(w, mbmi->cfl_alpha_ind[0], cfl_cdf, 4);
-  aom_write_symbol(w, mbmi->cfl_alpha_ind[1], cfl_cdf, 4);
+  const int k = mbmi->cfl_alpha_ind[0] * 4 + mbmi->cfl_alpha_ind[1];
+  aom_write_symbol(w, k, cfl_cdf, 16);
+// aom_write_symbol(w, mbmi->cfl_alpha_ind[1], cfl_cdf, 4);
 // lp}
 // aom_write_literal(w, mbmi->cfl_alpha_ind[0], 3);
 // aom_write_literal(w, mbmi->cfl_alpha_ind[1], 3);

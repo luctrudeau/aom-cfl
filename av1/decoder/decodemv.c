@@ -973,14 +973,17 @@ static void read_intra_frame_mode_info(AV1_COMMON *const cm,
                                 20886, 27080, 31164, 32768 };
   */
 
-  aom_cdf_prob cfl_cdf[4] = { 5129, 15974, 28204, 32768 };
-  mbmi->cfl_alpha_ind[0] = aom_read_symbol(r, cfl_cdf, 4, "cfl:alpha");
+  aom_cdf_prob cfl_cdf[16] = { 666,   1368,  2753,  5132,  6026,  8640,
+                               14410, 15550, 16845, 24224, 27401, 27679,
+                               30151, 31961, 32484, 32768 };
+  const int k = aom_read_symbol(r, cfl_cdf, 16, "cfl:alpha");
+  mbmi->cfl_alpha_ind[0] = k >> 2;
+  mbmi->cfl_alpha_ind[1] = k % 4;
 
   //  if (mbmi->cfl_alpha_ind[0] == 42) {
   //    mbmi->cfl_alpha_ind[0] = 3;
   //    mbmi->cfl_alpha_ind[1] = 3;
   //  } else {
-  mbmi->cfl_alpha_ind[1] = aom_read_symbol(r, cfl_cdf, 4, "cfl:alpha");
   //  }
   // mbmi->cfl_alpha_ind[0] = aom_read_literal(r, 3, "cfl:alpha");
   // mbmi->cfl_alpha_ind[1] = aom_read_literal(r, 3, "cfl:alpha");
