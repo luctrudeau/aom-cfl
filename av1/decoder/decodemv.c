@@ -973,9 +973,9 @@ static void read_intra_frame_mode_info(AV1_COMMON *const cm,
                                 20886, 27080, 31164, 32768 };
   */
 
-  aom_cdf_prob cfl_cdf[16] = { 6932,  9790,  10611, 10726, 14870, 20310,
-                               22065, 22326, 23820, 26940, 30279, 31236,
-                               31343, 31540, 32153, 32768 };
+  aom_cdf_prob cfl_cdf[16] = { 8459,  11198, 12077, 12296, 16363, 20538,
+                               21978, 22382, 24025, 26649, 29092, 30177,
+                               30436, 30807, 31642, 32768 };
 
   const int symb = aom_read_symbol(r, cfl_cdf, 16, "cfl:alpha");
   const int u_ind = symb >> 2;
