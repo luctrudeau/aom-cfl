@@ -2037,9 +2037,9 @@ static void write_mb_modes_kf(AV1_COMMON *cm, const MACROBLOCKD *xd,
     aom_cdf_prob cfl_cdf[8] = { 1361,  4472,  8761,  14086,
                                 20886, 27080, 31164, 32768 };
                                 */
-  aom_cdf_prob cfl_cdf[16] = { 666,   1368,  2753,  5132,  6026,  8640,
-                               14410, 15550, 16845, 24224, 27401, 27679,
-                               30151, 31961, 32484, 32768 };
+  aom_cdf_prob cfl_cdf[16] = { 602,   1533,  3358,  6788,  7335,  9707,
+                               16811, 18222, 19072, 24638, 28775, 29162,
+                               30633, 32021, 32474, 32768 };
   // const int cfl_skip =
   // const int cfl_skip =
   //    (mbmi->cfl_alpha_ind[0] == 4 && mbmi->cfl_alpha_ind[1] == 4);
