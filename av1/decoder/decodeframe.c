@@ -558,70 +558,8 @@ static void predict_and_reconstruct_intra_block(
                           row, plane);
 #if CONFIG_CFL
   if (plane != 0) {
-    assert(mbmi->uv_mode == DC_PRED);
-    // Sorted Centers
-    // const double sc[] = { -0.71563, -0.26877, -0.12428, -0.03977,
-    //                     0.022192, 0.10706,  0.28189,  1.0105 };
-
-    // Sorted Centers
-    // const double sc[] = { -1.5, -0.5, -0.125, 0, 0.125, 0.5, 1.5, 42 };
-    /*const double sc[] = { -0.8192467, -0.3250469, -0.1668164, -0.074237,
-                          -0.0052665, 0.0672287,  0.2076831,  0.8097277 };
-*/
-    // Sorted Centers
-    // const double sc_u[] = { -0.442890, -0.093906, 0.047935, 0.436877 };
-    // const double sc_v[] = { -0.363201, -0.047927, 0.083534, 0.568326 };
-    // const double *sc = (plane == 1) ? sc_u : sc_u;
-
-    // const double codes[] = { 0, 0.125, 0.25, 1 };
-    // Lloyds
-    const double codes[] = { 0, 0.122874, 0.286103, 0.854692 };
-
-    const int c_plane = plane - 1;
-    const int dst_stride = pd->dst.stride;
-    const int tx_block_width = tx_size_wide[tx_size];
-    const int tx_block_height = tx_size_high[tx_size];
-    const int N = tx_block_height * tx_block_width;
-    int y_avg = 0;
-    // int sLL = 0;
-    int i, j;
-    // int luma;
-    const double q_alpha = (mbmi->cfl_alpha_sign[c_plane])
-                               ? codes[mbmi->cfl_alpha_ind[c_plane]]
-                               : -codes[mbmi->cfl_alpha_ind[c_plane]];
-
-    cfl_load(xd->cfl, dst, dst_stride, row, col, tx_block_width,
-             tx_block_height);
-    for (j = 0; j < tx_block_height; j++) {
-      for (i = 0; i < tx_block_width; i++) {
-        y_avg += dst[dst_stride * j + i];
-      }
-    }
-    y_avg = (y_avg + (N >> 1)) / N;
-
-    // TODO(ltrudeau) Pre-allocate RAM instead of declaring every time.
-    int y_pix[MAX_SB_SQUARE];
-
-    // Subtract average Luma from CfL prediction
-    for (j = 0; j < tx_block_width; j++) {
-      for (i = 0; i < tx_block_height; i++) {
-        y_pix[MAX_SB_SIZE * j + i] = dst[dst_stride * j + i] - y_avg;
-        // TODO(ltrudeau) I could signal sLC instead of alpha and compute alpha
-        // sLL += luma * luma;
-      }
-    }
-
-    for (j = 0; j < tx_block_width; j++) {
-      for (i = 0; i < tx_block_height; i++) {
-        dst[dst_stride * j + i] =
-            (uint8_t)round(q_alpha * (double)y_pix[MAX_SB_SIZE * j + i]) +
-            xd->cfl->dc_pred;
-      }
-    }
-    // int above = (xd->above_mbmi) ? xd->above_mbmi->cfl_alpha_ind[0] : 0;
-    // int left = (xd->left_mbmi) ? xd->left_mbmi->cfl_alpha_ind[0] : 0;
-    // printf("above: %d left: %d me: %d\n", above, left,
-    // mbmi->cfl_alpha_ind[0]);
+    cfl_predict_block(xd->cfl, dst, pd->dst.stride, row, col, tx_size,
+                      mbmi->cfl_alpha_ind[plane - 1]);
   }
 #endif
 

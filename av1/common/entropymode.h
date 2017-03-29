@@ -63,6 +63,12 @@ extern "C" {
 #define PALETTE_MAX_BLOCK_SIZE (64 * 64)
 #endif  // CONFIG_PALETTE
 
+#if CONFIG_CFL
+// CfL needs to signal the value of alpha for both chroma planes.
+// To do so, CfL uses an alphabet of 4 for alpha. And code both alphas into one
+// symbol.
+#define CFL_ALPHA_CDF_SIZE (16)
+#endif
 struct AV1Common;
 
 typedef struct {
@@ -276,6 +282,9 @@ typedef struct frame_contexts {
 #endif  // CONFIG_EC_MULTISYMBOL
 #if CONFIG_DELTA_Q
   aom_prob delta_q_prob[DELTA_Q_PROBS];
+#endif
+#if CONFIG_CFL
+  aom_cdf_prob cfl_alpha_cdf[CFL_ALPHA_CDF_SIZE];
 #endif
 } FRAME_CONTEXT;
 

@@ -64,9 +64,15 @@ static INLINE int av1_is_directional_mode(PREDICTION_MODE mode,
 #endif  // CONFIG_EXT_INTRA
 
 #if CONFIG_CFL
-void cfl_load(const CFL_CTX *const cfl, uint8_t *const output,
-              int output_stride, int row, int col, int tx_block_width,
-              int tx_block_height);
+int cfl_compute_alpha_ind(const CFL_CTX *const cfl, uint8_t *const src,
+                          int src_stride, BLOCK_SIZE bsize);
+
+void cfl_predict_block(const CFL_CTX *const cfl, uint8_t *const dst,
+                       int dst_stride, int row, int col, TX_SIZE tx_size,
+                       int alpha_ind);
+
+int cfl_load(const CFL_CTX *const cfl, uint8_t *const output, int output_stride,
+             int row, int col, int tx_block_width, int tx_block_height);
 
 void cfl_store(CFL_CTX *const cfl, uint8_t *const input, int input_stride,
                int row, int col, int tx_blk_size);

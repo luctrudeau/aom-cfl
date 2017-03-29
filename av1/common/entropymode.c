@@ -2219,6 +2219,13 @@ static const aom_cdf_prob
     };
 #endif  // CONFIG_EXT_INTRA && CONFIG_INTRA_INTERP
 
+#if CONFIG_CFL
+static const aom_cdf_prob default_cfl_alpha_cdf[CFL_ALPHA_CDF_SIZE] = {
+  8459,  11198, 12077, 12296, 16363, 20538, 21978, 22382,
+  24025, 26649, 29092, 30177, 30436, 30807, 31642, 32768
+};
+#endif
+
 // CDF version of 'av1_kf_y_mode_prob'.
 const aom_cdf_prob
     av1_kf_y_mode_cdf[INTRA_MODES][INTRA_MODES][CDF_SIZE(INTRA_MODES)] = {
@@ -2778,6 +2785,9 @@ static void init_mode_probs(FRAME_CONTEXT *fc) {
   av1_copy(fc->delta_q_cdf, default_delta_q_cdf);
 #endif  // CONFIG_EC_MULTISYMBOL
 #endif  // CONFIG_DELTA_Q
+#if CONFIG_CFL
+  av1_copy(fc->cfl_alpha_cdf, default_cfl_alpha_cdf);
+#endif
 }
 
 #if CONFIG_EC_MULTISYMBOL

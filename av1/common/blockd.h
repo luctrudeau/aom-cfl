@@ -383,7 +383,7 @@ typedef struct {
 
 #if CONFIG_CFL
   int cfl_alpha_ind[2];
-  int cfl_alpha_sign[2];
+// Instrumentation for probabilities
 // double cfl_alpha[2];
 // double cfl_sLC[2];
 // double cfl_sLL[2];
@@ -504,6 +504,9 @@ typedef struct RefBuffer {
 } RefBuffer;
 
 #if CONFIG_CFL
+
+#define CFL_MAX_ALPHA_IND (4)
+
 typedef struct {
   // Pixel buffer containing the Luma pixel used as the prediction for Chroma.
   // It also contains the row above and the column to the left of the block.

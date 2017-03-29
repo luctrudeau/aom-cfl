@@ -158,6 +158,26 @@ static PREDICTION_MODE read_intra_mode_uv(AV1_COMMON *cm, MACROBLOCKD *xd,
 }
 #endif
 
+#if CONFIG_CFL
+static void read_cfl_alphas(AV1_COMMON *cm, aom_reader *r, int alpha_ind[2]) {
+#if CONFIG_EC_ADAPT
+  FRAME_CONTEXT *ec_ctx = xd->tile_ctx;
+#elif CONFIG_EC_MULTISYMBOL
+  FRAME_CONTEXT *ec_ctx = cm->fc;
+#endif
+
+  const int symb = aom_read_symbol(r, ec_ctx->cfl_alpha_cdf, CFL_ALPHA_CDF_SIZE,
+                                   "cfl:alpha");
+  alpha_ind[0] = symb >> 2;
+  if (alpha_ind[0] && !aom_read_bit(r, "cfl:sign"))
+    alpha_ind[0] = -alpha_ind[0];
+
+  alpha_ind[1] = symb % CFL_MAX_ALPHA_IND;
+  if (alpha_ind[1] && !aom_read_bit(r, "cfl:sign"))
+    alpha_ind[1] = -alpha_ind[1];
+}
+#endif
+
 #if CONFIG_EXT_INTER
 static INTERINTRA_MODE read_interintra_mode(AV1_COMMON *cm, MACROBLOCKD *xd,
                                             aom_reader *r, int size_group) {
@@ -969,32 +989,8 @@ static void read_intra_frame_mode_info(AV1_COMMON *const cm,
   mbmi->uv_mode = read_intra_mode_uv(cm, xd, r, mbmi->mode);
 #endif
 #else
-  /*  aom_cdf_prob cfl_cdf[8] = { 1361,  4472,  8761,  14086,
-                                20886, 27080, 31164, 32768 };
-  */
-
-  aom_cdf_prob cfl_cdf[16] = { 8459,  11198, 12077, 12296, 16363, 20538,
-                               21978, 22382, 24025, 26649, 29092, 30177,
-                               30436, 30807, 31642, 32768 };
-
-  const int symb = aom_read_symbol(r, cfl_cdf, 16, "cfl:alpha");
-  const int u_ind = symb >> 2;
-  mbmi->cfl_alpha_ind[0] = u_ind;
-  mbmi->cfl_alpha_sign[0] = (u_ind) ? aom_read_bit(r, "cfl:sign") : 1;
-
-  const int v_ind = symb % 4;
-  mbmi->cfl_alpha_ind[1] = v_ind;
-  mbmi->cfl_alpha_sign[1] = (v_ind) ? aom_read_bit(r, "cfl:sign") : 1;
-
-  //  if (mbmi->cfl_alpha_ind[0] == 42) {
-  //    mbmi->cfl_alpha_ind[0] = 3;
-  //    mbmi->cfl_alpha_ind[1] = 3;
-  //  } else {
-  //  }
-  // mbmi->cfl_alpha_ind[0] = aom_read_literal(r, 3, "cfl:alpha");
-  // mbmi->cfl_alpha_ind[1] = aom_read_literal(r, 3, "cfl:alpha");
+  read_cfl_alphas(cm, r, mbmi->cfl_alpha_ind);
   mbmi->uv_mode = DC_PRED;
-//  printf("%d %d\n", mbmi->cfl_alpha_ind[0], mbmi->cfl_alpha_ind[1]);
 #endif
 
 #if CONFIG_EXT_INTRA
@@ -1331,9 +1327,6 @@ static void read_intra_block_mode_info(AV1_COMMON *const cm, const int mi_row,
   (void)mi_col;
 #endif
 #else
-  // mbmi->cfl_alpha_ind[0] = aom_read_literal(r, 3, "cfl:alpha");
-  // mbmi->cfl_alpha_ind[1] = aom_read_literal(r, 3, "cfl:alpha");
-  //  printf("Block %d %d\n", mbmi->cfl_alpha_ind[0], mbmi->cfl_alpha_ind[1]);
   mbmi->uv_mode = DC_PRED;
   (void)mi_row;
   (void)mi_col;

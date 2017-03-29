@@ -5675,10 +5675,6 @@ static void encode_superblock(const AV1_COMP *const cpi, ThreadData *td,
       av1_encode_intra_block_plane((AV1_COMMON *)cm, x, block_size, plane, 1,
                                    mi_row, mi_col);
 
-#if CONFIG_CFL
-// x->cfl_store_y = 0;
-#endif
-
     if (!dry_run)
       sum_intra_stats(td->counts, mi, xd->above_mi, xd->left_mi,
                       frame_is_intra_only(cm), mi_row, mi_col);

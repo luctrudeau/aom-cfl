@@ -1540,6 +1540,23 @@ static void write_intra_uv_mode(FRAME_CONTEXT *frame_ctx,
 }
 #endif
 
+#if CONFIG_CFL
+static void write_cfl_alphas(FRAME_CONTEXT *const frame_ctx,
+                             const int alpha_ind[2], aom_writer *w) {
+  const int u_ind = abs(alpha_ind[0]);
+  const int v_ind = abs(alpha_ind[1]);
+  const int symb = u_ind * CFL_MAX_ALPHA_IND + v_ind;
+
+  assert(u_ind < CFL_MAX_ALPHA_IND);
+  assert(v_ind < CFL_MAX_ALPHA_IND);
+
+  aom_write_symbol(w, symb, frame_ctx->cfl_alpha_cdf, CFL_ALPHA_CDF_SIZE);
+
+  if (u_ind) aom_write_bit(w, alpha_ind[0] == u_ind);
+  if (v_ind) aom_write_bit(w, alpha_ind[1] == v_ind);
+}
+#endif
+
 static void pack_inter_mode_mvs(AV1_COMP *cpi, const MODE_INFO *mi,
                                 const int mi_row, const int mi_col,
 #if CONFIG_SUPERTX
@@ -1681,8 +1698,6 @@ static void pack_inter_mode_mvs(AV1_COMP *cpi, const MODE_INFO *mi,
 #endif  // CONFIG_CB4X4
 #else
     assert(0);
-// TODO(ltrudeau) One alpha per block or per transform size?
-// aom_write_literal(ec_ctx, mbmi->cfl_alpha_ind, 3);
 #endif
 
 #if CONFIG_EXT_INTRA
@@ -2028,44 +2043,7 @@ static void write_mb_modes_kf(AV1_COMMON *cm, const MACROBLOCKD *xd,
   write_intra_uv_mode(ec_ctx, mbmi->uv_mode, mbmi->mode, w);
 #endif  // CONFIG_CB4X4
 #else
-  // printf("%d\n", mbmi->cfl_alpha_ind[0]);
-  assert(mbmi->cfl_alpha_ind[0] >= 0 && mbmi->cfl_alpha_ind[0] < 8);
-  assert(mbmi->cfl_alpha_ind[1] >= 0 && mbmi->cfl_alpha_ind[1] < 8);
-  // aom_cdf_prob cfl_cdf[8] = { 1610,  5349,  10401, 16420,
-  //                            23105, 28397, 31537, 32768 };
-  /*
-    aom_cdf_prob cfl_cdf[8] = { 1361,  4472,  8761,  14086,
-                                20886, 27080, 31164, 32768 };
-                                */
-  aom_cdf_prob cfl_cdf[16] = { 8459,  11198, 12077, 12296, 16363, 20538,
-                               21978, 22382, 24025, 26649, 29092, 30177,
-                               30436, 30807, 31642, 32768 };
-
-  const int u_ind = mbmi->cfl_alpha_ind[0];
-  const int v_ind = mbmi->cfl_alpha_ind[1];
-
-  aom_write_symbol(w, u_ind * 4 + v_ind, cfl_cdf, 16);
-
-  if (u_ind) aom_write_bit(w, mbmi->cfl_alpha_sign[0]);
-  if (v_ind) aom_write_bit(w, mbmi->cfl_alpha_sign[1]);
-
-// const int cfl_skip =
-// const int cfl_skip =
-//    (mbmi->cfl_alpha_ind[0] == 4 && mbmi->cfl_alpha_ind[1] == 4);
-// if (cfl_skip) {
-//  aom_write_symbol(w, 42, cfl_cdf, 8);
-//} else {
-//  const int k = mbmi->cfl_alpha_ind[0] * 4 + mbmi->cfl_alpha_ind[1];
-//  aom_write_symbol(w, k, cfl_cdf, 16);
-// aom_write_symbol(w, mbmi->cfl_alpha_ind[1], cfl_cdf, 4);
-// lp}
-// aom_write_literal(w, mbmi->cfl_alpha_ind[0], 3);
-// aom_write_literal(w, mbmi->cfl_alpha_ind[1], 3);
-/* printf("[%d %d] %f %f %f %f %f %f\n", mbmi->cfl_alpha_ind[0],
-       mbmi->cfl_alpha_ind[1], mbmi->cfl_alpha[0], mbmi->cfl_sLC[0],
-       mbmi->cfl_sLL[0], mbmi->cfl_alpha[1], mbmi->cfl_sLC[1],
-       mbmi->cfl_sLL[1]);
-       */
+  write_cfl_alphas(ec_ctx, mbmi->cfl_alpha_ind, w);
 #endif
 
 #if CONFIG_EXT_INTRA
@@ -2392,10 +2370,6 @@ static void write_tokens_b(AV1_COMP *cpi, const TileInfo *const tile,
         }
 #endif  // CONFIG_RD_DEBUG
       } else {
-#if CONFIG_CFL
-// TODO(ltrudeau) One alpha per block or per transform size?
-// aom_write_literal(ec_ctx, mbmi->cfl_alpha_ind[plane - 1], 3);
-#endif
         TX_SIZE tx = get_tx_size(plane, xd);
         const int bkw = tx_size_wide_unit[tx];
         const int bkh = tx_size_high_unit[tx];
@@ -3790,9 +3764,11 @@ static int get_refresh_mask(AV1_COMP *cpi) {
 
 #if CONFIG_EXT_REFS
   // NOTE(zoeliu): When LAST_FRAME is to get refreshed, the decoder will be
-  // notified to get LAST3_FRAME refreshed and then the virtual indexes for all
+  // notified to get LAST3_FRAME refreshed and then the virtual indexes for
+  // all
   // the 3 LAST reference frames will be updated accordingly, i.e.:
-  // (1) The original virtual index for LAST3_FRAME will become the new virtual
+  // (1) The original virtual index for LAST3_FRAME will become the new
+  // virtual
   //     index for LAST_FRAME; and
   // (2) The original virtual indexes for LAST_FRAME and LAST2_FRAME will be
   //     shifted and become the new virtual indexes for LAST2_FRAME and
@@ -3811,7 +3787,8 @@ static int get_refresh_mask(AV1_COMP *cpi) {
 
   if (av1_preserve_existing_gf(cpi)) {
     // We have decided to preserve the previously existing golden frame as our
-    // new ARF frame. However, in the short term we leave it in the GF slot and,
+    // new ARF frame. However, in the short term we leave it in the GF slot
+    // and,
     // if we're updating the GF with the current decoded frame, we save it
     // instead to the ARF slot.
     // Later, in the function av1_encoder.c:av1_update_reference_frames() we
@@ -4015,7 +3992,8 @@ static uint32_t write_tiles(AV1_COMP *const cpi, uint8_t *const dst,
       size_t col_size = total_size - col_offset - 4;
       mem_put_le32(dst + col_offset, col_size);
 
-      // If it is not final packing, record the maximum tile column size we see,
+      // If it is not final packing, record the maximum tile column size we
+      // see,
       // otherwise, check if the tile size is out of the range.
       *max_tile_col_size = AOMMAX(*max_tile_col_size, col_size);
     }
@@ -4615,8 +4593,10 @@ static void write_global_motion(AV1_COMP *cpi, aom_writer *w) {
     /*
     printf("Frame %d/%d: Enc Ref %d (used %d/%d): %d %d %d %d\n",
            cm->current_video_frame, cm->show_frame, frame,
-           cpi->global_motion_used[frame][0], cpi->global_motion_used[frame][1],
-           cm->global_motion[frame].wmmat[0], cm->global_motion[frame].wmmat[1],
+           cpi->global_motion_used[frame][0],
+    cpi->global_motion_used[frame][1],
+           cm->global_motion[frame].wmmat[0],
+    cm->global_motion[frame].wmmat[1],
            cm->global_motion[frame].wmmat[2],
     cm->global_motion[frame].wmmat[3]);
            */

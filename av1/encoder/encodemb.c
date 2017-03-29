@@ -1055,142 +1055,16 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
 #if CONFIG_CFL
   if (plane != 0) {
     assert(mbmi->uv_mode == DC_PRED);
-    // Break points
-    // const double br[] = { -0.4033,  -0.18420, -0.078335, -0.005505,
-    //                       0.059694, 0.17399,  0.48718 };
-    // Sorted Centers
-    // const double sc[] = { -0.71563, -0.26877, -0.12428, -0.03977,
-    //                       0.022192, 0.10706,  0.28189,  1.0105 };
-    // Break points
-    // const double br[] = { -0.75, -0.25, -0.0625, 0.0625, 0.25, 0.75 };
-    // Sorted Centers
-    // const double sc[] = { -1.5, -0.5, -0.125, 0, 0.125, 0.5, 1.5, 42 };
 
-    // Lloyd 8 alphas
-    // Break points
-    // const double br[] = { -0.475836, -0.234103, -0.115826, -0.038076,
-    //    0.024930, 0.121661, 0.374746
-    //  };
-    // Sorted Centers
-    // const double sc[] = { -0.8192467, -0.3250469, -0.1668164, -0.074237,
-    // -0.0052665, 0.0672287, 0.2076831, 0.8097277
-    //};
-
-    // const double br_u[] = { -0.208555, -0.017853, 0.152991 };
-    // const double br_v[] = { -0.140601, 0.013699, 0.211475 };
-    // const double *br = (plane == 1) ? br_u : br_u;
-    // Sorted Centers
-    // const double sc_u[] = { -0.442890, -0.093906, 0.047935, 0.436877 };
-    // const double sc_v[] = { -0.363201, -0.047927, 0.083534, 0.568326 };
-    // const double *sc = (plane == 1) ? sc_u : sc_u;
-
-    // const double codes[] = { 0, 0.125, 0.25, 1 };
-    // const double table[] = { 0.0625, 0.1875, 0.4375 };
-
-    const double codes[] = { 0, 0.122874, 0.286103, 0.854692 };
-    const double table[] = { 0.074880, 0.188618, 0.451051 };
-
-    const int tx_block_width = tx_size_wide[tx_size];
-    const int tx_block_height = tx_size_high[tx_size];
-    const int N = tx_block_height * tx_block_width;
-    const int c_plane = plane - 1;
-    int y_avg = 0;
-    int i, j;
-    int luma;
-
+    const CFL_CTX *const cfl = xd->cfl;
     // Compute alpha on first block but do it over the entire block
     if (blk_col == 0 && blk_row == 0) {
-      const int block_width = block_size_wide[plane_bsize];
-      const int block_height = block_size_high[plane_bsize];
-      const int num_blk_pel = block_width * block_height;
-      int sLL = 0;
-      int sLC = 0;
-      int chroma;
-
-      // Load CfL Prediction over the entire block
-      cfl_load(xd->cfl, dst, dst_stride, 0, 0, block_width, block_height);
-
-      // Average Luma over the entire block
-      for (j = 0; j < block_height; j++) {
-        for (i = 0; i < block_width; i++) {
-          y_avg += dst[dst_stride * j + i];
-        }
-      }
-      y_avg = (y_avg + (num_blk_pel >> 1)) / num_blk_pel;
-
-      // Luma and Chroma sums over the entire block
-      for (j = 0; j < block_height; j++) {
-        for (i = 0; i < block_width; i++) {
-          chroma = src[src_stride * j + i] - xd->cfl->dc_pred;
-          luma = dst[dst_stride * j + i] - y_avg;
-          sLL += luma * luma;
-          sLC += luma * chroma;
-        }
-      }
-
-      // Compute alpha over the entire block
-      const double alpha = (sLL) ? sLC / (double)sLL : 0;
-      const double a_alpha = fabs(alpha);
-      for (i = 0; i < 3; i++) {
-        if (a_alpha < table[i]) break;
-      }
-      mbmi->cfl_alpha_ind[c_plane] = i;
-      mbmi->cfl_alpha_sign[c_plane] = alpha == a_alpha;
-
-      /*const double q_alpha = (mbmi->cfl_alpha_sign[c_plane])
-                                 ? codes[mbmi->cfl_alpha_ind[c_plane]]
-                                 : -codes[mbmi->cfl_alpha_ind[c_plane]];
-                                 */
-      // if (a_alpha > 0.25) printf("%f %f\n", alpha, q_alpha);
-      // mbmi->cfl_sLC[plane - 1] = sLC;
-      // mbmi->cfl_sLL[plane - 1] = sLL;
-      // mbmi->cfl_alpha[plane - 1] = alpha;
-
-      /* double q_alpha = sc[mbmi->cfl_alpha_ind[plane - 1]];
-       double diff = alpha - q_alpha;
-       double sse = diff * diff; */
-      //  if (sse > 1) {
-      // printf("(%f - %f)^2 = %f\n", alpha, q_alpha, sse);
-      // mbmi->cfl_alpha_ind[plane - 1] = 4;
-      //}
+      mbmi->cfl_alpha_ind[plane - 1] =
+          cfl_compute_alpha_ind(cfl, src, src_stride, plane_bsize);
     }
 
-    // Replicate decoder behavior
-    const double q_alpha = (mbmi->cfl_alpha_sign[c_plane])
-                               ? codes[mbmi->cfl_alpha_ind[c_plane]]
-                               : -codes[mbmi->cfl_alpha_ind[c_plane]];
-
-    cfl_load(xd->cfl, dst, dst_stride, blk_row, blk_col, tx_block_width,
-             tx_block_height);
-
-    // Reset Luma average
-    y_avg = 0;
-
-    // Compute Luma average only over transform block
-    for (j = 0; j < tx_block_height; j++) {
-      for (i = 0; i < tx_block_width; i++) {
-        y_avg += dst[dst_stride * j + i];
-      }
-    }
-    y_avg = (y_avg + (N >> 1)) / N;
-
-    // TODO(ltrudeau) Pre-allocate RAM instead of declaring every time.
-    int y_pix[MAX_SB_SQUARE];
-
-    // Subtract average Luma from CfL prediction
-    for (j = 0; j < tx_block_height; j++) {
-      for (i = 0; i < tx_block_width; i++) {
-        y_pix[MAX_SB_SIZE * j + i] = dst[dst_stride * j + i] - y_avg;
-      }
-    }
-
-    for (j = 0; j < tx_block_height; j++) {
-      for (i = 0; i < tx_block_width; i++) {
-        dst[dst_stride * j + i] =
-            (uint8_t)round(q_alpha * (double)y_pix[MAX_SB_SIZE * j + i]) +
-            xd->cfl->dc_pred;
-      }
-    }
+    cfl_predict_block(cfl, dst, dst_stride, blk_row, blk_col, tx_size,
+                      mbmi->cfl_alpha_ind[plane - 1]);
   }
 #endif
   if (check_subtract_block_size(tx1d_width, tx1d_height)) {
