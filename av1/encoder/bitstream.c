@@ -2037,17 +2037,26 @@ static void write_mb_modes_kf(AV1_COMMON *cm, const MACROBLOCKD *xd,
     aom_cdf_prob cfl_cdf[8] = { 1361,  4472,  8761,  14086,
                                 20886, 27080, 31164, 32768 };
                                 */
-  aom_cdf_prob cfl_cdf[16] = { 602,   1533,  3358,  6788,  7335,  9707,
-                               16811, 18222, 19072, 24638, 28775, 29162,
-                               30633, 32021, 32474, 32768 };
-  // const int cfl_skip =
-  // const int cfl_skip =
-  //    (mbmi->cfl_alpha_ind[0] == 4 && mbmi->cfl_alpha_ind[1] == 4);
-  // if (cfl_skip) {
-  //  aom_write_symbol(w, 42, cfl_cdf, 8);
-  //} else {
-  const int k = mbmi->cfl_alpha_ind[0] * 4 + mbmi->cfl_alpha_ind[1];
-  aom_write_symbol(w, k, cfl_cdf, 16);
+  aom_cdf_prob cfl_cdf[16] = { 6932,  9790,  10611, 10726, 14870, 20310,
+                               22065, 22326, 23820, 26940, 30279, 31236,
+                               31343, 31540, 32153, 32768 };
+
+  const int u_ind = mbmi->cfl_alpha_ind[0];
+  const int v_ind = mbmi->cfl_alpha_ind[1];
+
+  aom_write_symbol(w, u_ind * 4 + v_ind, cfl_cdf, 16);
+
+  if (u_ind) aom_write_bit(w, mbmi->cfl_alpha_sign[0]);
+  if (v_ind) aom_write_bit(w, mbmi->cfl_alpha_sign[1]);
+
+// const int cfl_skip =
+// const int cfl_skip =
+//    (mbmi->cfl_alpha_ind[0] == 4 && mbmi->cfl_alpha_ind[1] == 4);
+// if (cfl_skip) {
+//  aom_write_symbol(w, 42, cfl_cdf, 8);
+//} else {
+//  const int k = mbmi->cfl_alpha_ind[0] * 4 + mbmi->cfl_alpha_ind[1];
+//  aom_write_symbol(w, k, cfl_cdf, 16);
 // aom_write_symbol(w, mbmi->cfl_alpha_ind[1], cfl_cdf, 4);
 // lp}
 // aom_write_literal(w, mbmi->cfl_alpha_ind[0], 3);

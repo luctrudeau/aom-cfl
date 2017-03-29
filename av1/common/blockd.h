@@ -383,9 +383,10 @@ typedef struct {
 
 #if CONFIG_CFL
   int cfl_alpha_ind[2];
-  double cfl_alpha[2];
-  double cfl_sLC[2];
-  double cfl_sLL[2];
+  int cfl_alpha_sign[2];
+// double cfl_alpha[2];
+// double cfl_sLC[2];
+// double cfl_sLL[2];
 #endif
   BOUNDARY_TYPE boundary_info;
 } MB_MODE_INFO;

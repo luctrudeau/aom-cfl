@@ -569,10 +569,13 @@ static void predict_and_reconstruct_intra_block(
                           -0.0052665, 0.0672287,  0.2076831,  0.8097277 };
 */
     // Sorted Centers
-    const double sc_u[] = { -0.442890, -0.093906, 0.047935, 0.436877 };
+    // const double sc_u[] = { -0.442890, -0.093906, 0.047935, 0.436877 };
     // const double sc_v[] = { -0.363201, -0.047927, 0.083534, 0.568326 };
-    const double *sc = (plane == 1) ? sc_u : sc_u;
+    // const double *sc = (plane == 1) ? sc_u : sc_u;
 
+    const double codes[] = { 0, 0.125, 0.25, 1 };
+
+    const int c_plane = plane - 1;
     const int dst_stride = pd->dst.stride;
     const int tx_block_width = tx_size_wide[tx_size];
     const int tx_block_height = tx_size_high[tx_size];
@@ -581,7 +584,9 @@ static void predict_and_reconstruct_intra_block(
     // int sLL = 0;
     int i, j;
     // int luma;
-    const double q_alpha = sc[mbmi->cfl_alpha_ind[plane - 1]];
+    const double q_alpha = (mbmi->cfl_alpha_sign[c_plane])
+                               ? codes[mbmi->cfl_alpha_ind[c_plane]]
+                               : -codes[mbmi->cfl_alpha_ind[c_plane]];
 
     cfl_load(xd->cfl, dst, dst_stride, row, col, tx_block_width,
              tx_block_height);

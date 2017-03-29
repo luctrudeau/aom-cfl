@@ -1076,17 +1076,21 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
     // -0.0052665, 0.0672287, 0.2076831, 0.8097277
     //};
 
-    const double br_u[] = { -0.208555, -0.017853, 0.152991 };
+    // const double br_u[] = { -0.208555, -0.017853, 0.152991 };
     // const double br_v[] = { -0.140601, 0.013699, 0.211475 };
-    const double *br = (plane == 1) ? br_u : br_u;
+    // const double *br = (plane == 1) ? br_u : br_u;
     // Sorted Centers
-    const double sc_u[] = { -0.442890, -0.093906, 0.047935, 0.436877 };
+    // const double sc_u[] = { -0.442890, -0.093906, 0.047935, 0.436877 };
     // const double sc_v[] = { -0.363201, -0.047927, 0.083534, 0.568326 };
-    const double *sc = (plane == 1) ? sc_u : sc_u;
+    // const double *sc = (plane == 1) ? sc_u : sc_u;
+
+    const double codes[] = { 0, 0.125, 0.25, 1 };
+    const double table[] = { 0.0625, 0.1875, 0.4375 };
 
     const int tx_block_width = tx_size_wide[tx_size];
     const int tx_block_height = tx_size_high[tx_size];
     const int N = tx_block_height * tx_block_width;
+    const int c_plane = plane - 1;
     int y_avg = 0;
     int i, j;
     int luma;
@@ -1123,13 +1127,21 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
 
       // Compute alpha over the entire block
       const double alpha = (sLL) ? sLC / (double)sLL : 0;
+      const double a_alpha = fabs(alpha);
       for (i = 0; i < 3; i++) {
-        if (alpha < br[i]) break;
+        if (a_alpha < table[i]) break;
       }
-      mbmi->cfl_alpha_ind[plane - 1] = i;
-      mbmi->cfl_sLC[plane - 1] = sLC;
-      mbmi->cfl_sLL[plane - 1] = sLL;
-      mbmi->cfl_alpha[plane - 1] = alpha;
+      mbmi->cfl_alpha_ind[c_plane] = i;
+      mbmi->cfl_alpha_sign[c_plane] = alpha == a_alpha;
+
+      /*const double q_alpha = (mbmi->cfl_alpha_sign[c_plane])
+                                 ? codes[mbmi->cfl_alpha_ind[c_plane]]
+                                 : -codes[mbmi->cfl_alpha_ind[c_plane]];
+                                 */
+      // if (a_alpha > 0.25) printf("%f %f\n", alpha, q_alpha);
+      // mbmi->cfl_sLC[plane - 1] = sLC;
+      // mbmi->cfl_sLL[plane - 1] = sLL;
+      // mbmi->cfl_alpha[plane - 1] = alpha;
 
       /* double q_alpha = sc[mbmi->cfl_alpha_ind[plane - 1]];
        double diff = alpha - q_alpha;
@@ -1141,7 +1153,10 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
     }
 
     // Replicate decoder behavior
-    const double q_alpha = sc[mbmi->cfl_alpha_ind[plane - 1]];
+    const double q_alpha = (mbmi->cfl_alpha_sign[c_plane])
+                               ? codes[mbmi->cfl_alpha_ind[c_plane]]
+                               : -codes[mbmi->cfl_alpha_ind[c_plane]];
+
     cfl_load(xd->cfl, dst, dst_stride, blk_row, blk_col, tx_block_width,
              tx_block_height);
 
