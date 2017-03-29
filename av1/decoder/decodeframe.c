@@ -573,7 +573,9 @@ static void predict_and_reconstruct_intra_block(
     // const double sc_v[] = { -0.363201, -0.047927, 0.083534, 0.568326 };
     // const double *sc = (plane == 1) ? sc_u : sc_u;
 
-    const double codes[] = { 0, 0.125, 0.25, 1 };
+    // const double codes[] = { 0, 0.125, 0.25, 1 };
+    // Lloyds
+    const double codes[] = { 0, 0.122874, 0.286103, 0.854692 };
 
     const int c_plane = plane - 1;
     const int dst_stride = pd->dst.stride;
@@ -616,6 +618,10 @@ static void predict_and_reconstruct_intra_block(
             xd->cfl->dc_pred;
       }
     }
+    // int above = (xd->above_mbmi) ? xd->above_mbmi->cfl_alpha_ind[0] : 0;
+    // int left = (xd->left_mbmi) ? xd->left_mbmi->cfl_alpha_ind[0] : 0;
+    // printf("above: %d left: %d me: %d\n", above, left,
+    // mbmi->cfl_alpha_ind[0]);
   }
 #endif
 

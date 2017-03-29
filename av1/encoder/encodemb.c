@@ -1084,8 +1084,11 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
     // const double sc_v[] = { -0.363201, -0.047927, 0.083534, 0.568326 };
     // const double *sc = (plane == 1) ? sc_u : sc_u;
 
-    const double codes[] = { 0, 0.125, 0.25, 1 };
-    const double table[] = { 0.0625, 0.1875, 0.4375 };
+    // const double codes[] = { 0, 0.125, 0.25, 1 };
+    // const double table[] = { 0.0625, 0.1875, 0.4375 };
+
+    const double codes[] = { 0, 0.122874, 0.286103, 0.854692 };
+    const double table[] = { 0.074880, 0.188618, 0.451051 };
 
     const int tx_block_width = tx_size_wide[tx_size];
     const int tx_block_height = tx_size_high[tx_size];
