@@ -2033,16 +2033,20 @@ static void write_mb_modes_kf(AV1_COMMON *cm, const MACROBLOCKD *xd,
   assert(mbmi->cfl_alpha_ind[1] >= 0 && mbmi->cfl_alpha_ind[1] < 8);
   // aom_cdf_prob cfl_cdf[8] = { 1610,  5349,  10401, 16420,
   //                            23105, 28397, 31537, 32768 };
-
-  aom_cdf_prob cfl_cdf[7] = { 346, 3671, 11517, 23314, 29841, 32179, 32768 };
+  /*
+    aom_cdf_prob cfl_cdf[8] = { 1361,  4472,  8761,  14086,
+                                20886, 27080, 31164, 32768 };
+                                */
+  aom_cdf_prob cfl_cdf[4] = { 5129, 15974, 28204, 32768 };
+  // const int cfl_skip =
   // const int cfl_skip =
   //    (mbmi->cfl_alpha_ind[0] == 4 && mbmi->cfl_alpha_ind[1] == 4);
   // if (cfl_skip) {
   //  aom_write_symbol(w, 42, cfl_cdf, 8);
   //} else {
-  aom_write_symbol(w, mbmi->cfl_alpha_ind[0], cfl_cdf, 7);
-  aom_write_symbol(w, mbmi->cfl_alpha_ind[1], cfl_cdf, 7);
-//}
+  aom_write_symbol(w, mbmi->cfl_alpha_ind[0], cfl_cdf, 4);
+  aom_write_symbol(w, mbmi->cfl_alpha_ind[1], cfl_cdf, 4);
+// lp}
 // aom_write_literal(w, mbmi->cfl_alpha_ind[0], 3);
 // aom_write_literal(w, mbmi->cfl_alpha_ind[1], 3);
 /* printf("[%d %d] %f %f %f %f %f %f\n", mbmi->cfl_alpha_ind[0],

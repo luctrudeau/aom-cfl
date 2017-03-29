@@ -564,8 +564,12 @@ static void predict_and_reconstruct_intra_block(
     //                     0.022192, 0.10706,  0.28189,  1.0105 };
 
     // Sorted Centers
-    const double sc[] = { -1.5, -0.5, -0.125, 0, 0.125, 0.5, 1.5, 42 };
-
+    // const double sc[] = { -1.5, -0.5, -0.125, 0, 0.125, 0.5, 1.5, 42 };
+    /*const double sc[] = { -0.8192467, -0.3250469, -0.1668164, -0.074237,
+                          -0.0052665, 0.0672287,  0.2076831,  0.8097277 };
+*/
+    // Sorted Centers
+    const double sc[] = { -0.442890, -0.093906, 0.047935, 0.436877 };
     const int dst_stride = pd->dst.stride;
     const int tx_block_width = tx_size_wide[tx_size];
     const int tx_block_height = tx_size_high[tx_size];

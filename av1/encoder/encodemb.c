@@ -1062,10 +1062,23 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
     // const double sc[] = { -0.71563, -0.26877, -0.12428, -0.03977,
     //                       0.022192, 0.10706,  0.28189,  1.0105 };
     // Break points
-    const double br[] = { -0.75, -0.25, -0.0625, 0.0625, 0.25, 0.75 };
+    // const double br[] = { -0.75, -0.25, -0.0625, 0.0625, 0.25, 0.75 };
     // Sorted Centers
-    const double sc[] = { -1.5, -0.5, -0.125, 0, 0.125, 0.5, 1.5, 42 };
+    // const double sc[] = { -1.5, -0.5, -0.125, 0, 0.125, 0.5, 1.5, 42 };
 
+    // Lloyd 8 alphas
+    // Break points
+    // const double br[] = { -0.475836, -0.234103, -0.115826, -0.038076,
+    //    0.024930, 0.121661, 0.374746
+    //  };
+    // Sorted Centers
+    // const double sc[] = { -0.8192467, -0.3250469, -0.1668164, -0.074237,
+    // -0.0052665, 0.0672287, 0.2076831, 0.8097277
+    //};
+
+    const double br[] = { -0.208555, -0.017853, 0.152991 };
+    // Sorted Centers
+    const double sc[] = { -0.442890, -0.093906, 0.047935, 0.436877 };
     const int tx_block_width = tx_size_wide[tx_size];
     const int tx_block_height = tx_size_high[tx_size];
     const int N = tx_block_height * tx_block_width;
@@ -1105,7 +1118,7 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
 
       // Compute alpha over the entire block
       const double alpha = (sLL) ? sLC / (double)sLL : 0;
-      for (i = 0; i < 6; i++) {
+      for (i = 0; i < 3; i++) {
         if (alpha < br[i]) break;
       }
       mbmi->cfl_alpha_ind[plane - 1] = i;
