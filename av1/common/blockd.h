@@ -517,9 +517,12 @@ typedef struct {
   // the column to the left of the block).
   int y_height, y_width;
 
+  // CfL Performs its own block level DC_PRED
   int is_dc_computed;
-  int is_left_summed, is_above_summed;
-  int dc_pred;
+  int is_summing_pixels;
+  int dc_pred[2];
+
+  int num_tx_blk[2];
 } CFL_CTX;
 #endif
 

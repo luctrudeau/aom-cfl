@@ -558,11 +558,14 @@ static void predict_and_reconstruct_intra_block(
                           row, plane);
 #if CONFIG_CFL
   if (plane != 0 && mbmi->uv_mode == DC_PRED) {
+    if (col == 0 && row == 0) {
+      xd->cfl->dc_pred[plane - 1] =
+          cfl_dc_pred(xd, pd, get_plane_block_size(mbmi->sb_type, pd), tx_size);
+    }
     cfl_predict_block(xd->cfl, dst, pd->dst.stride, row, col, tx_size,
-                      mbmi->cfl_alpha_ind[plane - 1]);
+                      mbmi->cfl_alpha_ind[plane - 1], plane);
   }
 #endif
-
   if (!mbmi->skip) {
     TX_TYPE tx_type = get_tx_type(plane_type, xd, block_idx, tx_size);
 #if !CONFIG_PVQ
@@ -590,7 +593,6 @@ static void predict_and_reconstruct_intra_block(
     av1_pvq_decode_helper2(cm, xd, mbmi, plane, row, col, tx_size, tx_type);
 #endif
   }
-
 #if CONFIG_CFL
   // TODO(ltrudeau) Manage rectangular transforms
   const int tx_blk_size = tx_size_wide[tx_size];
@@ -3221,7 +3223,8 @@ static void get_tile_buffers(
 
       if (!is_last) data += tile_col_size_bytes;
 
-      // Get the whole of the last column, otherwise stop at the required tile.
+      // Get the whole of the last column, otherwise stop at the required
+      // tile.
       for (r = 0; r < (is_last ? tile_rows : tile_rows_end); ++r) {
         tile_buffers[r][c].col = c;
 
@@ -4053,7 +4056,7 @@ static size_t read_uncompressed_header(AV1Decoder *pbi,
       int frame_id_length = pbi->seq_params.frame_id_length_minus7 + 7;
       int display_frame_id = aom_rb_read_literal(rb, frame_id_length);
       /* Compare display_frame_id with ref_frame_id and check valid for
-      * referencing */
+       * referencing */
       if (display_frame_id != cm->ref_frame_id[existing_frame_idx] ||
           cm->valid_for_referencing[existing_frame_idx] == 0)
         aom_internal_error(&cm->error, AOM_CODEC_CORRUPT_FRAME,
@@ -4195,7 +4198,8 @@ static size_t read_uncompressed_header(AV1Decoder *pbi,
 
 #if CONFIG_EXT_REFS
       if (!pbi->refresh_frame_flags) {
-        // NOTE: "pbi->refresh_frame_flags == 0" indicates that the coded frame
+        // NOTE: "pbi->refresh_frame_flags == 0" indicates that the coded
+        // frame
         //       will not be used as a reference
         cm->is_reference_frame = 0;
       }
@@ -4218,7 +4222,7 @@ static size_t read_uncompressed_header(AV1Decoder *pbi,
                 (1 << frame_id_length)) %
                (1 << frame_id_length));
           /* Compare values derived from delta_frame_id_minus1 and
-          * refresh_frame_flags. Also, check valid for referencing */
+           * refresh_frame_flags. Also, check valid for referencing */
           if (ref_frame_id != cm->ref_frame_id[ref] ||
               cm->valid_for_referencing[ref] == 0)
             aom_internal_error(&cm->error, AOM_CODEC_CORRUPT_FRAME,
@@ -4266,7 +4270,7 @@ static size_t read_uncompressed_header(AV1Decoder *pbi,
 #if CONFIG_REFERENCE_BUFFER
   if (pbi->seq_params.frame_id_numbers_present_flag) {
     /* If bitmask is set, update reference frame id values and
-    mark frames as valid for reference */
+       mark frames as valid for reference */
     int refresh_frame_flags =
         cm->frame_type == KEY_FRAME ? 0xFF : pbi->refresh_frame_flags;
     for (i = 0; i < REF_FRAMES; i++) {
@@ -4512,13 +4516,13 @@ static void read_global_motion(AV1_COMMON *cm, aom_reader *r) {
     read_global_motion_params(&cm->global_motion[frame],
                               cm->fc->global_motion_types_prob, r);
     /*
-    printf("Dec Ref %d [%d/%d]: %d %d %d %d\n",
-           frame, cm->current_video_frame, cm->show_frame,
-           cm->global_motion[frame].wmmat[0],
-           cm->global_motion[frame].wmmat[1],
-           cm->global_motion[frame].wmmat[2],
-           cm->global_motion[frame].wmmat[3]);
-           */
+       printf("Dec Ref %d [%d/%d]: %d %d %d %d\n",
+       frame, cm->current_video_frame, cm->show_frame,
+       cm->global_motion[frame].wmmat[0],
+       cm->global_motion[frame].wmmat[1],
+       cm->global_motion[frame].wmmat[2],
+       cm->global_motion[frame].wmmat[3]);
+       */
   }
 }
 #endif  // CONFIG_GLOBAL_MOTION
@@ -4906,7 +4910,8 @@ void av1_decode_frame(AV1Decoder *pbi, const uint8_t *data,
   //               newly coded frame. Hence, we need to check whether this is
   //               the case, and if yes, we have 2 choices:
   //               (1) Simply disable the use of previous frame mvs; or
-  //               (2) Have cm->prev_frame point to one reference frame buffer,
+  //               (2) Have cm->prev_frame point to one reference frame
+  //               buffer,
   //                   e.g. LAST_FRAME.
   if (cm->use_prev_frame_mvs && !dec_is_ref_frame_buf(pbi, cm->prev_frame)) {
     // Reassign the LAST_FRAME buffer to cm->prev_frame.

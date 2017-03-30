@@ -1051,20 +1051,22 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
   av1_predict_intra_block(xd, pd->width, pd->height, txsize_to_bsize[tx_size],
                           mode, dst, dst_stride, dst, dst_stride, blk_col,
                           blk_row, plane);
-
 #if CONFIG_CFL
   if (plane != 0 && mbmi->uv_mode == DC_PRED) {
-    const CFL_CTX *const cfl = xd->cfl;
-    // Compute alpha on first block but do it over the entire block
+    CFL_CTX *const cfl = xd->cfl;
     if (blk_col == 0 && blk_row == 0) {
+      cfl->dc_pred[plane - 1] =
+          cfl_dc_pred(xd, pd, get_plane_block_size(mbmi->sb_type, pd), tx_size);
+      // Compute alpha on first block but do it over the entire block
       mbmi->cfl_alpha_ind[plane - 1] =
-          cfl_compute_alpha_ind(cfl, src, src_stride, plane_bsize);
+          cfl_compute_alpha_ind(cfl, src, src_stride, plane_bsize, plane);
     }
 
     cfl_predict_block(cfl, dst, dst_stride, blk_row, blk_col, tx_size,
-                      mbmi->cfl_alpha_ind[plane - 1]);
+                      mbmi->cfl_alpha_ind[plane - 1], plane);
   }
 #endif
+
   if (check_subtract_block_size(tx1d_width, tx1d_height)) {
 #if CONFIG_AOM_HIGHBITDEPTH
     if (xd->cur_buf->flags & YV12_FLAG_HIGHBITDEPTH) {
@@ -1157,16 +1159,7 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
   // *(args->skip) == mbmi->skip
   if (!x->pvq_skip[plane]) *(args->skip) = 0;
 
-#if CONFIG_CFL
-  if (x->pvq_skip[plane]) {
-    if (plane == 0 && x->cfl_store_y) {
-      cfl_store(xd->cfl, dst, dst_stride, blk_row, blk_col, tx_blk_size);
-    }
-    return;
-  }
-#else
   if (x->pvq_skip[plane]) return;
-#endif
 
   // transform block size in pixels
   tx_blk_size = tx_size_wide[tx_size];
@@ -1214,6 +1207,49 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
     // TODO(ltrudeau) support rectangular transforms
     const int tx_blk_size = tx_size_wide[tx_size];
     cfl_store(xd->cfl, dst, dst_stride, blk_row, blk_col, tx_blk_size);
+  }
+
+  if (mbmi->uv_mode == DC_PRED) {
+    // TODO(ltrudeau) find a cleaner way to detect last transform block
+    if (plane == 1) {
+      xd->cfl->num_tx_blk[0] =
+          (blk_row == 0 && blk_col == 0) ? 1 : xd->cfl->num_tx_blk[0] + 1;
+    }
+
+    if (plane == 2) {
+      xd->cfl->num_tx_blk[1] =
+          (blk_row == 0 && blk_col == 0) ? 1 : xd->cfl->num_tx_blk[1] + 1;
+
+      if (mbmi->skip && xd->cfl->num_tx_blk[0] == xd->cfl->num_tx_blk[1]) {
+        assert(plane_bsize != BLOCK_INVALID);
+        const int block_width = block_size_wide[plane_bsize];
+        const int block_height = block_size_high[plane_bsize];
+
+        // if SKIP is chosen at the block level, and alpha != 0, we must change
+        // the prediction
+        if (mbmi->cfl_alpha_ind[0] != 0) {
+          const struct macroblockd_plane *const pd_cb = &xd->plane[1];
+          uint8_t *const dst_cb = pd_cb->dst.buf;
+          const int dst_stride_cb = pd_cb->dst.stride;
+          for (int j = 0; j < block_height; j++) {
+            for (int i = 0; i < block_width; i++) {
+              dst_cb[dst_stride_cb * j + i] = xd->cfl->dc_pred[0];
+            }
+          }
+          mbmi->cfl_alpha_ind[0] = 0;
+        }
+        if (mbmi->cfl_alpha_ind[1] != 0) {
+          uint8_t *const dst_cr = pd->dst.buf;
+          const int dst_stride_cr = pd->dst.stride;
+          for (int j = 0; j < block_height; j++) {
+            for (int i = 0; i < block_width; i++) {
+              dst_cr[dst_stride_cr * j + i] = xd->cfl->dc_pred[1];
+            }
+          }
+          mbmi->cfl_alpha_ind[1] = 0;
+        }
+      }
+    }
   }
 #endif
 }

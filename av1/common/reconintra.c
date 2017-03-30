@@ -2085,12 +2085,25 @@ static void build_intra_predictors(const MACROBLOCKD *xd, const uint8_t *ref,
       memset(left_col, 129, bs << need_bottom);
     }
 #if CONFIG_CFL
-    CFL_CTX *const cfl = xd->cfl;
-    if (cfl->is_dc_computed && cfl->is_left_summed) {
+/*    CFL_CTX *const cfl = xd->cfl;
+    if (cfl->is_dc_computed && cfl->is_summing_pixels) {
+      const MB_MODE_INFO *const mbmi = &xd->mi[0]->mbmi;
+      const struct macroblockd_plane *const pd = &xd->plane[plane];
+      const BLOCK_SIZE plane_bsize = get_plane_block_size(mbmi->sb_type, pd);
+      const int block_height = (plane_bsize != BLOCK_INVALID)
+                                   ? block_size_high[plane_bsize]
+                                   : n_left_px;
+      // Distance between the bottom edge of this prediction block to
+      // the frame bottom edge
+      const int yd = (xd->mb_to_bottom_edge >> (3 + pd->subsampling_y));
       int sum = 0;
-      for (i = 0; i < bs; i++) sum += left_col[i];
-      cfl->dc_pred += sum;
-    }
+      if (yd > 0) {
+        for (i = 0; i < block_height; i++) sum += ref[i * ref_stride - 1];
+      } else {
+        sum = block_height * 129;
+      }
+      cfl->dc_pred[plane - 1] += sum;
+    } */
 #endif
   }
 
@@ -2122,12 +2135,25 @@ static void build_intra_predictors(const MACROBLOCKD *xd, const uint8_t *ref,
       memset(above_row, 127, bs << need_right);
     }
 #if CONFIG_CFL
-    CFL_CTX *const cfl = xd->cfl;
-    if (cfl->is_dc_computed && xd->cfl->is_above_summed) {
-      int sum = 0;
-      for (i = 0; i < bs; i++) sum += above_row[i];
-      xd->cfl->dc_pred += sum;
-    }
+/* CFL_CTX *const cfl = xd->cfl;
+ if (cfl->is_dc_computed && cfl->is_summing_pixels) {
+   const MB_MODE_INFO *const mbmi = &xd->mi[0]->mbmi;
+   const struct macroblockd_plane *const pd = &xd->plane[plane];
+   const BLOCK_SIZE plane_bsize = get_plane_block_size(mbmi->sb_type, pd);
+   const int block_width = (plane_bsize != BLOCK_INVALID)
+                               ? block_size_wide[plane_bsize]
+                               : n_top_px;
+   // Distance between the right edge of this prediction block to
+   // the frame right edge
+   const int xr = (xd->mb_to_right_edge >> (3 + pd->subsampling_x));
+   int sum = 0;
+   if (xr > 0) {
+     for (i = 0; i < block_width; i++) sum += above_ref[i];
+   } else {
+     sum = 127 * block_width;
+   }
+   cfl->dc_pred[plane - 1] += sum;
+ } */
 #endif
   }
 
@@ -2161,8 +2187,16 @@ static void build_intra_predictors(const MACROBLOCKD *xd, const uint8_t *ref,
 
   // predict
   if (mode == DC_PRED) {
+#if CONFIG_CFL
+    // CFL will performs its own DC_PRED for Chroma planes
+    if (mode == DC_PRED && plane == 0) {
+      dc_pred[n_left_px > 0][n_top_px > 0][tx_size](dst, dst_stride,
+                                                    const_above_row, left_col);
+    }
+#else
     dc_pred[n_left_px > 0][n_top_px > 0][tx_size](dst, dst_stride,
                                                   const_above_row, left_col);
+#endif
   } else {
     pred[mode][tx_size](dst, dst_stride, const_above_row, left_col);
   }
@@ -2285,15 +2319,6 @@ void av1_predict_intra_block(const MACROBLOCKD *xd, int wpx, int hpx,
   const int block_height = block_size_high[bsize];
   TX_SIZE tx_size = max_txsize_lookup[bsize];
   assert(tx_size < TX_SIZES);
-#if CONFIG_CFL
-  CFL_CTX *const cfl = xd->cfl;
-  cfl->is_dc_computed = plane != 0 && col_off == 0 && row_off == 0;
-  if (cfl->is_dc_computed) {
-    xd->cfl->dc_pred = 0;
-    xd->cfl->is_left_summed = 1;
-    xd->cfl->is_above_summed = 1;
-  }
-#endif
   if (block_width == block_height) {
     predict_square_intra_block(xd, wpx, hpx, tx_size, mode, ref, ref_stride,
                                dst, dst_stride, col_off, row_off, plane);
@@ -2341,9 +2366,6 @@ void av1_predict_intra_block(const MACROBLOCKD *xd, int wpx, int hpx,
           }
 #endif  // CONFIG_AOM_HIGHBITDEPTH
         }
-#if CONFIG_CFL
-        if (cfl->is_dc_computed) xd->cfl->is_above_summed = 0;
-#endif
         // Predict the bottom square sub-block.
         predict_square_intra_block(xd, wpx, hpx, tx_size, mode, src_2,
                                    ref_stride, dst_2, dst_stride, col_off,
@@ -2399,9 +2421,6 @@ void av1_predict_intra_block(const MACROBLOCKD *xd, int wpx, int hpx,
           }
 #endif  // CONFIG_AOM_HIGHBITDEPTH
         }
-#if CONFIG_CFL
-        if (cfl->is_dc_computed) xd->cfl->is_left_summed = 0;
-#endif
         // Predict the right square sub-block.
         predict_square_intra_block(xd, wpx, hpx, tx_size, mode, src_2,
                                    ref_stride, dst_2, dst_stride, col_off_2,
@@ -2430,12 +2449,6 @@ void av1_predict_intra_block(const MACROBLOCKD *xd, int wpx, int hpx,
 #endif  // (CONFIG_RECT_TX && (CONFIG_VAR_TX || CONFIG_EXT_TX)) ||
         // (CONFIG_EXT_INTER)
   }
-#if CONFIG_CFL
-  if (cfl->is_dc_computed) {
-    const int N = block_width + block_height;
-    cfl->dc_pred = (cfl->dc_pred + (N >> 1)) / N;
-  }
-#endif
 }
 
 void av1_init_intra_predictors(void) {
@@ -2447,8 +2460,35 @@ void av1_init_intra_predictors(void) {
 // alpha index.
 static uint8_t tmp_pix[MAX_SB_SQUARE];
 
+int cfl_dc_pred(MACROBLOCKD *const xd, const struct macroblockd_plane *const pd,
+                BLOCK_SIZE plane_bsize, TX_SIZE tx_size) {
+  const uint8_t *const dst = pd->dst.buf;
+  const int dst_stride = pd->dst.stride;
+  const int block_width = (plane_bsize != BLOCK_INVALID)
+                              ? block_size_wide[plane_bsize]
+                              : tx_size_wide[tx_size];
+  const int block_height = (plane_bsize != BLOCK_INVALID)
+                               ? block_size_high[plane_bsize]
+                               : tx_size_high[tx_size];
+  const int num_pel = block_width + block_height;
+
+  int sum = 0;
+  if (xd->up_available && xd->mb_to_right_edge >= 0) {
+    for (int i = 0; i < block_width; i++) sum += dst[-dst_stride + i];
+  } else {
+    sum = block_width * 127;
+  }
+
+  if (xd->left_available && xd->mb_to_bottom_edge >= 0) {
+    for (int i = 0; i < block_height; i++) sum += dst[i * dst_stride - 1];
+  } else {
+    sum += block_height * 129;
+  }
+
+  return (sum + (num_pel >> 1)) / num_pel;
+}
 int cfl_compute_alpha_ind(const CFL_CTX *const cfl, uint8_t *const src,
-                          int src_stride, BLOCK_SIZE bsize) {
+                          int src_stride, BLOCK_SIZE bsize, int plane) {
   const int block_width = block_size_wide[bsize];
   const int block_height = block_size_high[bsize];
   int sLL = 0;
@@ -2462,7 +2502,7 @@ int cfl_compute_alpha_ind(const CFL_CTX *const cfl, uint8_t *const src,
   // Compute least squares parameter of the entire block
   for (int j = 0; j < block_height; j++) {
     for (int i = 0; i < block_width; i++) {
-      chroma = src[src_stride * j + i] - cfl->dc_pred;
+      chroma = src[src_stride * j + i] - cfl->dc_pred[plane - 1];
       luma = tmp_pix[MAX_SB_SIZE * j + i] - y_avg;
       sLL += luma * luma;
       sLC += luma * chroma;
@@ -2481,7 +2521,7 @@ int cfl_compute_alpha_ind(const CFL_CTX *const cfl, uint8_t *const src,
 
 void cfl_predict_block(const CFL_CTX *const cfl, uint8_t *const dst,
                        int dst_stride, int row, int col, TX_SIZE tx_size,
-                       int alpha_ind) {
+                       int alpha_ind, int plane) {
   const int tx_block_width = tx_size_wide[tx_size];
   const int tx_block_height = tx_size_high[tx_size];
 
@@ -2494,7 +2534,8 @@ void cfl_predict_block(const CFL_CTX *const cfl, uint8_t *const dst,
   for (int j = 0; j < tx_block_height; j++) {
     for (int i = 0; i < tx_block_width; i++) {
       double luma = dst[dst_row + i] - y_avg;
-      dst[dst_row + i] = (uint8_t)round(q_alpha * luma) + cfl->dc_pred;
+      dst[dst_row + i] =
+          (uint8_t)round(q_alpha * luma) + cfl->dc_pred[plane - 1];
     }
     dst_row += dst_stride;
   }

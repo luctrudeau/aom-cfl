@@ -986,7 +986,14 @@ static void read_intra_frame_mode_info(AV1_COMMON *const cm,
   mbmi->uv_mode = read_intra_mode_uv(cm, xd, r, mbmi->mode);
 #endif
 #if CONFIG_CFL
-  if (mbmi->uv_mode == DC_PRED) read_cfl_alphas(cm, r, mbmi->cfl_alpha_ind);
+  if (mbmi->uv_mode == DC_PRED) {
+    if (mbmi->skip) {
+      mbmi->cfl_alpha_ind[0] = 0;
+      mbmi->cfl_alpha_ind[1] = 0;
+    } else {
+      read_cfl_alphas(cm, r, mbmi->cfl_alpha_ind);
+    }
+  }
 #endif
 
 #if CONFIG_EXT_INTRA

@@ -64,15 +64,17 @@ static INLINE int av1_is_directional_mode(PREDICTION_MODE mode,
 #endif  // CONFIG_EXT_INTRA
 
 #if CONFIG_CFL
+int cfl_dc_pred(MACROBLOCKD *const xd, const struct macroblockd_plane *const pd,
+                BLOCK_SIZE plane_bsize, TX_SIZE tx_size);
 int cfl_compute_alpha_ind(const CFL_CTX *const cfl, uint8_t *const src,
-                          int src_stride, BLOCK_SIZE bsize);
+                          int src_stride, BLOCK_SIZE bsize, int plane);
 
 void cfl_predict_block(const CFL_CTX *const cfl, uint8_t *const dst,
                        int dst_stride, int row, int col, TX_SIZE tx_size,
-                       int alpha_ind);
+                       int alpha_ind, int plane);
 
 int cfl_load(const CFL_CTX *const cfl, uint8_t *const output, int output_stride,
-             int row, int col, int tx_block_width, int tx_block_height);
+             int row, int col, int tx_block_width, int plane);
 
 void cfl_store(CFL_CTX *const cfl, uint8_t *const input, int input_stride,
                int row, int col, int tx_blk_size);
