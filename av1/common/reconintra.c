@@ -425,7 +425,7 @@ static const uint16_t *const orders_verta[BLOCK_SIZES] = {
 // 1982, no 2, p129-137
 static const double cfl_alpha_codes[CFL_MAX_ALPHA_IND] = { 0, 0.122874,
                                                            0.286103, 0.854692 };
-static const double clf_alpha_table[CFL_MAX_ALPHA_IND - 1] = {
+static const double cfl_alpha_table[CFL_MAX_ALPHA_IND - 1] = {
   0.074880, 0.188618, 0.451051
 };
 #endif

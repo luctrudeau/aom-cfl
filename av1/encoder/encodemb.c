@@ -1053,9 +1053,7 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
                           blk_row, plane);
 
 #if CONFIG_CFL
-  if (plane != 0) {
-    assert(mbmi->uv_mode == DC_PRED);
-
+  if (plane != 0 && mbmi->uv_mode == DC_PRED) {
     const CFL_CTX *const cfl = xd->cfl;
     // Compute alpha on first block but do it over the entire block
     if (blk_col == 0 && blk_row == 0) {

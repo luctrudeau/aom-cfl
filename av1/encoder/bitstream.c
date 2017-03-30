@@ -1526,7 +1526,6 @@ static void write_intra_mode(FRAME_CONTEXT *frame_ctx, BLOCK_SIZE bsize,
 #endif
 }
 
-#if !CONFIG_CFL
 static void write_intra_uv_mode(FRAME_CONTEXT *frame_ctx,
                                 PREDICTION_MODE uv_mode, PREDICTION_MODE y_mode,
                                 aom_writer *w) {
@@ -1538,7 +1537,6 @@ static void write_intra_uv_mode(FRAME_CONTEXT *frame_ctx,
                   &intra_mode_encodings[uv_mode]);
 #endif
 }
-#endif
 
 #if CONFIG_CFL
 static void write_cfl_alphas(FRAME_CONTEXT *const frame_ctx,
@@ -1689,16 +1687,12 @@ static void pack_inter_mode_mvs(AV1_COMP *cpi, const MODE_INFO *mi,
         }
       }
     }
-#if !CONFIG_CFL
 #if CONFIG_CB4X4
     if (bsize >= BLOCK_8X8 || is_chroma_reference(mi_row, mi_col))
       write_intra_uv_mode(ec_ctx, mbmi->uv_mode, mode, w);
 #else  // !CONFIG_CB4X4
     write_intra_uv_mode(ec_ctx, mbmi->uv_mode, mode, w);
 #endif  // CONFIG_CB4X4
-#else
-    assert(0);
-#endif
 
 #if CONFIG_EXT_INTRA
     write_intra_angle_info(xd, ec_ctx, w);
@@ -2035,15 +2029,15 @@ static void write_mb_modes_kf(AV1_COMMON *cm, const MACROBLOCKD *xd,
     }
   }
 
-#if !CONFIG_CFL
 #if CONFIG_CB4X4
   if (bsize >= BLOCK_8X8 || is_chroma_reference(mi_row, mi_col))
     write_intra_uv_mode(ec_ctx, mbmi->uv_mode, mbmi->mode, w);
 #else  // !CONFIG_CB4X4
   write_intra_uv_mode(ec_ctx, mbmi->uv_mode, mbmi->mode, w);
 #endif  // CONFIG_CB4X4
-#else
-  write_cfl_alphas(ec_ctx, mbmi->cfl_alpha_ind, w);
+#if CONFIG_CFL
+  if (mbmi->uv_mode == DC_PRED)
+    write_cfl_alphas(ec_ctx, mbmi->cfl_alpha_ind, w);
 #endif
 
 #if CONFIG_EXT_INTRA

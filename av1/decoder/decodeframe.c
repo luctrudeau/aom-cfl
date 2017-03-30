@@ -557,7 +557,7 @@ static void predict_and_reconstruct_intra_block(
                           mode, dst, pd->dst.stride, dst, pd->dst.stride, col,
                           row, plane);
 #if CONFIG_CFL
-  if (plane != 0) {
+  if (plane != 0 && mbmi->uv_mode == DC_PRED) {
     cfl_predict_block(xd->cfl, dst, pd->dst.stride, row, col, tx_size,
                       mbmi->cfl_alpha_ind[plane - 1]);
   }
