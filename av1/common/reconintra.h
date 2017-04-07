@@ -64,26 +64,32 @@ static INLINE int av1_is_directional_mode(PREDICTION_MODE mode,
 #endif  // CONFIG_EXT_INTRA
 
 #if CONFIG_CFL
-// Optimized using barrbrain's secret sauce.
-static const double cfl_alpha_codes[16][2] = { { 0, 0 },
-                                               { 0.040979, 0.033698 },
-                                               { 0.046883, 0.119568 },
-                                               { 0.122612, 0.041332 },
-                                               { 0.07343, 0.267272 },
-                                               { 0.247968, 0.053005 },
-                                               { 0.169956, 0.451542 },
-                                               { 0.492068, 0.19885 },
-                                               { 0.204593, 0.183029 },
-                                               { 1.003407, 0.480246 },
-                                               { 0.277097, 0.712143 },
-                                               { 0.56754, 1.067072 },
-                                               { 2.495618, 0.212118 },
-                                               { 1.738761, 0.077004 },
-                                               { 3.095779, 0.474077 },
-                                               { 1.194377, 1.949127 } };
+static const double cfl_alpha_codes[CFL_MAX_ALPHA_IND][2] = {
+  // Notes:
+  //   * First code MUST be (0.0, 0.0)
+  //   * No sign bit is signaled for values of 0.0
 
-int cfl_dc_pred(MACROBLOCKD *const xd, const struct macroblockd_plane *const pd,
-                BLOCK_SIZE plane_bsize, TX_SIZE tx_size);
+  // Optimized using barrbrain's secret sauce.
+  /*
+  { 0.0, 0.0 },           { 0.040979, 0.033698 }, { 0.046883, 0.119568 },
+  { 0.122612, 0.041332 }, { 0.07343, 0.267272 },  { 0.247968, 0.053005 },
+  { 0.169956, 0.451542 }, { 0.492068, 0.19885 },  { 0.204593, 0.183029 },
+  { 1.003407, 0.480246 }, { 0.277097, 0.712143 }, { 0.56754, 1.067072 },
+  { 2.495618, 0.212118 }, { 1.738761, 0.077004 }, { 3.095779, 0.474077 },
+  { 1.194377, 1.949127 }
+  */
+
+  // Mimic 1D Quant (to match previous results)
+  { 0.0, 0.0 },           { 0.0, 0.122874 },      { 0.0, 0.286103 },
+  { 0.0, 0.854692 },      { 0.122874, 0.0 },      { 0.122874, 0.122874 },
+  { 0.122874, 0.286103 }, { 0.122874, 0.854692 }, { 0.286103, 0.0 },
+  { 0.286103, 0.122874 }, { 0.286103, 0.286103 }, { 0.286103, 0.854692 },
+  { 0.854692, 0.0 },      { 0.854692, 0.122874 }, { 0.854692, 0.286103 },
+  { 0.854692, 0.854692 }
+};
+
+void cfl_dc_pred(MACROBLOCKD *const xd, CFL_CTX *const cfl,
+                 BLOCK_SIZE plane_bsize, TX_SIZE tx_size);
 
 void cfl_predict_block(const CFL_CTX *const cfl, uint8_t *const dst,
                        int dst_stride, int row, int col, TX_SIZE tx_size,

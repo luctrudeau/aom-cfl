@@ -1013,6 +1013,8 @@ void av1_encode_sb_supertx(AV1_COMMON *cm, MACROBLOCK *x, BLOCK_SIZE bsize) {
 
 #if CONFIG_CFL
 
+// Temporary pixel buffer used to store the CfL prediction when we compute the
+// alpha index.
 static uint8_t tmp_pix[MAX_SB_SQUARE];
 
 int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
@@ -1055,7 +1057,9 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
   const double a_alpha_cb = fabs(alpha_cb);
   const double a_alpha_cr = fabs(alpha_cr);
 
+  // Index of the closest alpha Cb nd Cr pair.
   int ind = 0;
+  // Euclidean distance, sqrt is not needed, because we only care for min.
   double min_dist = pow(cfl_alpha_codes[0][0] - a_alpha_cb, 2) +
                     pow(cfl_alpha_codes[0][1] - a_alpha_cr, 2);
   for (int i = 1; i < CFL_MAX_ALPHA_IND; i++) {
@@ -1067,6 +1071,8 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
     }
   }
 
+  // sign == 1 implies positive, sign == 0 implies negative
+  // (0 is always positive)
   signs[0] = (ind) ? alpha_cb == a_alpha_cb : 1;
   signs[1] = (ind) ? alpha_cr == a_alpha_cr : 1;
 
@@ -1117,15 +1123,20 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
 #if CONFIG_CFL
   if (plane != 0 && mbmi->uv_mode == DC_PRED) {
     CFL_CTX *const cfl = xd->cfl;
+    // Compute the block-level DC_PRED and the value of alpha for both chromatic
+    // planes prior to processing the first chromatic plane.
     if (blk_col == 0 && blk_row == 0 && plane == 1) {
-      cfl->dc_pred[plane - 1] =
-          cfl_dc_pred(xd, pd, get_plane_block_size(mbmi->sb_type, pd), tx_size);
-      struct macroblockd_plane *const pd_cr = &xd->plane[2];
-      xd->cfl->dc_pred[1] = cfl_dc_pred(
-          xd, pd_cr, get_plane_block_size(mbmi->sb_type, pd_cr), tx_size);
+      cfl_dc_pred(xd, cfl, plane_bsize, tx_size);
+
+      xd->cfl->dc_pred_size = plane_bsize;
       // Compute alpha on first block but do it over the entire block
       mbmi->cfl_alpha_ind =
           cfl_compute_alpha_ind(x, cfl, plane_bsize, mbmi->cfl_alpha_signs);
+    }
+
+    if (plane == 2 && blk_row == 0 && blk_col == 0) {
+      // Check that dc_pred is computed over the same block size
+      assert(xd->cfl->dc_pred_size == plane_bsize);
     }
 
     cfl_predict_block(cfl, dst, dst_stride, blk_row, blk_col, tx_size,
@@ -1292,7 +1303,7 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
         const int block_width = block_size_wide[plane_bsize];
         const int block_height = block_size_high[plane_bsize];
 
-        // if SKIP is chosen at the block level, and alpha != 0, we must change
+        // if SKIP is chosen at the block level, and ind != 0, we must change
         // the prediction
         if (mbmi->cfl_alpha_ind != 0) {
           const struct macroblockd_plane *const pd_cb = &xd->plane[1];

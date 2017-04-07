@@ -1546,8 +1546,10 @@ static void write_cfl_alphas(FRAME_CONTEXT *const frame_ctx, const int ind,
                              const int signs[2], aom_writer *w) {
   assert(ind < CFL_MAX_ALPHA_IND);
 
+  // Write a symbol representing a combination of alpha Cb and alpha Cr.
   aom_write_symbol(w, ind, frame_ctx->cfl_alpha_cdf, CFL_ALPHA_CDF_SIZE);
 
+  // Signs are only signaled for nonzero codes.
   if (cfl_alpha_codes[ind][0] != 0) aom_write_bit(w, signs[0]);
   if (cfl_alpha_codes[ind][1] != 0) aom_write_bit(w, signs[1]);
 }

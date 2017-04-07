@@ -382,7 +382,9 @@ typedef struct {
 #endif  // CONFIG_WARPED_MOTION
 
 #if CONFIG_CFL
+  // Index of the alpha Cb and alpha Cr combination
   int cfl_alpha_ind;
+  // Signs of alpha Cb and alpha Cr
   int cfl_alpha_signs[2];
 // Instrumentation for probabilities
 // double cfl_alpha[2];
@@ -523,7 +525,13 @@ typedef struct {
   int is_summing_pixels;
   int dc_pred[2];
 
+  // Count the number of TX blocks in a predicted block to know when you are at
+  // the last one, so you can check for skips (there has to be a better way to
+  // do
+  // this).
   int num_tx_blk[2];
+  // This is only used to validate CfL block level DC_PRED
+  int dc_pred_size;
 } CFL_CTX;
 #endif
 

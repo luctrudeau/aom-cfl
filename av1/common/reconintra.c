@@ -2073,27 +2073,6 @@ static void build_intra_predictors(const MACROBLOCKD *xd, const uint8_t *ref,
     } else {
       memset(left_col, 129, bs << need_bottom);
     }
-#if CONFIG_CFL
-/*    CFL_CTX *const cfl = xd->cfl;
-    if (cfl->is_dc_computed && cfl->is_summing_pixels) {
-      const MB_MODE_INFO *const mbmi = &xd->mi[0]->mbmi;
-      const struct macroblockd_plane *const pd = &xd->plane[plane];
-      const BLOCK_SIZE plane_bsize = get_plane_block_size(mbmi->sb_type, pd);
-      const int block_height = (plane_bsize != BLOCK_INVALID)
-                                   ? block_size_high[plane_bsize]
-                                   : n_left_px;
-      // Distance between the bottom edge of this prediction block to
-      // the frame bottom edge
-      const int yd = (xd->mb_to_bottom_edge >> (3 + pd->subsampling_y));
-      int sum = 0;
-      if (yd > 0) {
-        for (i = 0; i < block_height; i++) sum += ref[i * ref_stride - 1];
-      } else {
-        sum = block_height * 129;
-      }
-      cfl->dc_pred[plane - 1] += sum;
-    } */
-#endif
   }
 
   // NEED_ABOVE
@@ -2123,27 +2102,6 @@ static void build_intra_predictors(const MACROBLOCKD *xd, const uint8_t *ref,
     } else {
       memset(above_row, 127, bs << need_right);
     }
-#if CONFIG_CFL
-/* CFL_CTX *const cfl = xd->cfl;
- if (cfl->is_dc_computed && cfl->is_summing_pixels) {
-   const MB_MODE_INFO *const mbmi = &xd->mi[0]->mbmi;
-   const struct macroblockd_plane *const pd = &xd->plane[plane];
-   const BLOCK_SIZE plane_bsize = get_plane_block_size(mbmi->sb_type, pd);
-   const int block_width = (plane_bsize != BLOCK_INVALID)
-                               ? block_size_wide[plane_bsize]
-                               : n_top_px;
-   // Distance between the right edge of this prediction block to
-   // the frame right edge
-   const int xr = (xd->mb_to_right_edge >> (3 + pd->subsampling_x));
-   int sum = 0;
-   if (xr > 0) {
-     for (i = 0; i < block_width; i++) sum += above_ref[i];
-   } else {
-     sum = 127 * block_width;
-   }
-   cfl->dc_pred[plane - 1] += sum;
- } */
-#endif
   }
 
   if (need_above_left) {
@@ -2445,10 +2403,17 @@ void av1_init_intra_predictors(void) {
 }
 
 #if CONFIG_CFL
-int cfl_dc_pred(MACROBLOCKD *const xd, const struct macroblockd_plane *const pd,
-                BLOCK_SIZE plane_bsize, TX_SIZE tx_size) {
-  const uint8_t *const dst = pd->dst.buf;
-  const int dst_stride = pd->dst.stride;
+void cfl_dc_pred(MACROBLOCKD *const xd, CFL_CTX *const cfl,
+                 BLOCK_SIZE plane_bsize, TX_SIZE tx_size) {
+  const struct macroblockd_plane *const pd_cb = &xd->plane[1];
+  const struct macroblockd_plane *const pd_cr = &xd->plane[2];
+
+  const uint8_t *const dst_cb = pd_cb->dst.buf;
+  const uint8_t *const dst_cr = pd_cr->dst.buf;
+
+  const int dst_cb_stride = pd_cb->dst.stride;
+  const int dst_cr_stride = pd_cr->dst.stride;
+
   const int block_width = (plane_bsize != BLOCK_INVALID)
                               ? block_size_wide[plane_bsize]
                               : tx_size_wide[tx_size];
@@ -2457,20 +2422,30 @@ int cfl_dc_pred(MACROBLOCKD *const xd, const struct macroblockd_plane *const pd,
                                : tx_size_high[tx_size];
   const int num_pel = block_width + block_height;
 
-  int sum = 0;
+  int sum_cb = 0;
+  int sum_cr = 0;
   if (xd->up_available && xd->mb_to_right_edge >= 0) {
-    for (int i = 0; i < block_width; i++) sum += dst[-dst_stride + i];
+    for (int i = 0; i < block_width; i++) {
+      sum_cb += dst_cb[-dst_cb_stride + i];
+      sum_cr += dst_cr[-dst_cr_stride + i];
+    }
   } else {
-    sum = block_width * 127;
+    sum_cb = block_width * 127;
+    sum_cr = block_width * 127;
   }
 
   if (xd->left_available && xd->mb_to_bottom_edge >= 0) {
-    for (int i = 0; i < block_height; i++) sum += dst[i * dst_stride - 1];
+    for (int i = 0; i < block_height; i++) {
+      sum_cb += dst_cb[i * dst_cb_stride - 1];
+      sum_cr += dst_cr[i * dst_cr_stride - 1];
+    }
   } else {
-    sum += block_height * 129;
+    sum_cb += block_height * 129;
+    sum_cr += block_height * 129;
   }
 
-  return (sum + (num_pel >> 1)) / num_pel;
+  cfl->dc_pred[0] = (sum_cb + (num_pel >> 1)) / num_pel;
+  cfl->dc_pred[1] = (sum_cr + (num_pel >> 1)) / num_pel;
 }
 
 void cfl_predict_block(const CFL_CTX *const cfl, uint8_t *const dst,
@@ -2479,7 +2454,8 @@ void cfl_predict_block(const CFL_CTX *const cfl, uint8_t *const dst,
   const int tx_block_width = tx_size_wide[tx_size];
   const int tx_block_height = tx_size_high[tx_size];
 
-  const double q_alpha = (alpha_sign >= 0)
+  // Get quantized alpha from index (a sign of 0 implies negative alpha)
+  const double q_alpha = (alpha_sign != 0)
                              ? cfl_alpha_codes[alpha_ind][plane - 1]
                              : -cfl_alpha_codes[alpha_ind][plane - 1];
 
