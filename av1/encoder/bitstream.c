@@ -37,6 +37,9 @@
 #if CONFIG_EXT_INTRA
 #include "av1/common/reconintra.h"
 #endif  // CONFIG_EXT_INTRA
+#if CONFIG_CFL
+#include "av1/common/reconintra.h"
+#endif
 #include "av1/common/seg_common.h"
 #include "av1/common/tile_common.h"
 
@@ -1539,19 +1542,14 @@ static void write_intra_uv_mode(FRAME_CONTEXT *frame_ctx,
 }
 
 #if CONFIG_CFL
-static void write_cfl_alphas(FRAME_CONTEXT *const frame_ctx,
-                             const int alpha_ind[2], aom_writer *w) {
-  const int u_ind = abs(alpha_ind[0]);
-  const int v_ind = abs(alpha_ind[1]);
-  const int symb = u_ind * CFL_MAX_ALPHA_IND + v_ind;
+static void write_cfl_alphas(FRAME_CONTEXT *const frame_ctx, const int ind,
+                             const int signs[2], aom_writer *w) {
+  assert(ind < CFL_MAX_ALPHA_IND);
 
-  assert(u_ind < CFL_MAX_ALPHA_IND);
-  assert(v_ind < CFL_MAX_ALPHA_IND);
+  aom_write_symbol(w, ind, frame_ctx->cfl_alpha_cdf, CFL_ALPHA_CDF_SIZE);
 
-  aom_write_symbol(w, symb, frame_ctx->cfl_alpha_cdf, CFL_ALPHA_CDF_SIZE);
-
-  if (u_ind) aom_write_bit(w, alpha_ind[0] == u_ind);
-  if (v_ind) aom_write_bit(w, alpha_ind[1] == v_ind);
+  if (cfl_alpha_codes[ind][0] != 0) aom_write_bit(w, signs[0]);
+  if (cfl_alpha_codes[ind][1] != 0) aom_write_bit(w, signs[1]);
 }
 #endif
 
@@ -2038,10 +2036,11 @@ static void write_mb_modes_kf(AV1_COMMON *cm, const MACROBLOCKD *xd,
 #if CONFIG_CFL
   if (mbmi->uv_mode == DC_PRED) {
     if (mbmi->skip) {
-      assert(mbmi->cfl_alpha_ind[0] == 0);
-      assert(mbmi->cfl_alpha_ind[1] == 0);
+      assert(mbmi->cfl_alpha_ind == 0);
+      assert(mbmi->cfl_alpha_signs[0] == 1);
+      assert(mbmi->cfl_alpha_signs[1] == 1);
     } else {
-      write_cfl_alphas(ec_ctx, mbmi->cfl_alpha_ind, w);
+      write_cfl_alphas(ec_ctx, mbmi->cfl_alpha_ind, mbmi->cfl_alpha_signs, w);
     }
   }
 #endif

@@ -1011,6 +1011,69 @@ void av1_encode_sb_supertx(AV1_COMMON *cm, MACROBLOCK *x, BLOCK_SIZE bsize) {
 }
 #endif  // CONFIG_SUPERTX
 
+#if CONFIG_CFL
+
+static uint8_t tmp_pix[MAX_SB_SQUARE];
+
+int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
+                          BLOCK_SIZE bsize, int signs[2]) {
+  const struct macroblock_plane *const p_cb = &x->plane[1];
+  const struct macroblock_plane *const p_cr = &x->plane[2];
+
+  const uint8_t *const src_cb = p_cb->src.buf;
+  const uint8_t *const src_cr = p_cr->src.buf;
+
+  const int src_stride_cb = p_cb->src.stride;
+  const int src_stride_cr = p_cr->src.stride;
+
+  const int block_width = block_size_wide[bsize];
+  const int block_height = block_size_high[bsize];
+  int sLL = 0;
+  int sLCb = 0;
+  int sLCr = 0;
+  int luma, cb, cr;
+
+  // Load CfL Prediction over the entire block
+  const int y_avg =
+      cfl_load(cfl, tmp_pix, MAX_SB_SIZE, 0, 0, block_width, block_height);
+
+  // Compute least squares parameter of the entire block
+  for (int j = 0; j < block_height; j++) {
+    for (int i = 0; i < block_width; i++) {
+      cb = src_cb[src_stride_cb * j + i] - cfl->dc_pred[0];
+      cr = src_cr[src_stride_cr * j + i] - cfl->dc_pred[1];
+      luma = tmp_pix[MAX_SB_SIZE * j + i] - y_avg;
+      sLL += luma * luma;
+      sLCb += luma * cb;
+      sLCr += luma * cr;
+    }
+  }
+
+  const double alpha_cb = (sLL) ? sLCb / (double)sLL : 0;
+  const double alpha_cr = (sLL) ? sLCr / (double)sLL : 0;
+
+  const double a_alpha_cb = fabs(alpha_cb);
+  const double a_alpha_cr = fabs(alpha_cr);
+
+  int ind = 0;
+  double min_dist = pow(cfl_alpha_codes[0][0] - a_alpha_cb, 2) +
+                    pow(cfl_alpha_codes[0][1] - a_alpha_cr, 2);
+  for (int i = 1; i < CFL_MAX_ALPHA_IND; i++) {
+    double dist = pow(cfl_alpha_codes[i][0] - a_alpha_cb, 2) +
+                  pow(cfl_alpha_codes[i][1] - a_alpha_cr, 2);
+    if (dist < min_dist) {
+      min_dist = dist;
+      ind = i;
+    }
+  }
+
+  signs[0] = (ind) ? alpha_cb == a_alpha_cb : 1;
+  signs[1] = (ind) ? alpha_cr == a_alpha_cr : 1;
+
+  return ind;
+}
+#endif
+
 void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
                             BLOCK_SIZE plane_bsize, TX_SIZE tx_size,
                             void *arg) {
@@ -1054,16 +1117,20 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
 #if CONFIG_CFL
   if (plane != 0 && mbmi->uv_mode == DC_PRED) {
     CFL_CTX *const cfl = xd->cfl;
-    if (blk_col == 0 && blk_row == 0) {
+    if (blk_col == 0 && blk_row == 0 && plane == 1) {
       cfl->dc_pred[plane - 1] =
           cfl_dc_pred(xd, pd, get_plane_block_size(mbmi->sb_type, pd), tx_size);
+      struct macroblockd_plane *const pd_cr = &xd->plane[2];
+      xd->cfl->dc_pred[1] = cfl_dc_pred(
+          xd, pd_cr, get_plane_block_size(mbmi->sb_type, pd_cr), tx_size);
       // Compute alpha on first block but do it over the entire block
-      mbmi->cfl_alpha_ind[plane - 1] =
-          cfl_compute_alpha_ind(cfl, src, src_stride, plane_bsize, plane);
+      mbmi->cfl_alpha_ind =
+          cfl_compute_alpha_ind(x, cfl, plane_bsize, mbmi->cfl_alpha_signs);
     }
 
     cfl_predict_block(cfl, dst, dst_stride, blk_row, blk_col, tx_size,
-                      mbmi->cfl_alpha_ind[plane - 1], plane);
+                      mbmi->cfl_alpha_ind, mbmi->cfl_alpha_signs[plane - 1],
+                      plane);
   }
 #endif
 
@@ -1227,26 +1294,21 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
 
         // if SKIP is chosen at the block level, and alpha != 0, we must change
         // the prediction
-        if (mbmi->cfl_alpha_ind[0] != 0) {
+        if (mbmi->cfl_alpha_ind != 0) {
           const struct macroblockd_plane *const pd_cb = &xd->plane[1];
           uint8_t *const dst_cb = pd_cb->dst.buf;
           const int dst_stride_cb = pd_cb->dst.stride;
-          for (int j = 0; j < block_height; j++) {
-            for (int i = 0; i < block_width; i++) {
-              dst_cb[dst_stride_cb * j + i] = xd->cfl->dc_pred[0];
-            }
-          }
-          mbmi->cfl_alpha_ind[0] = 0;
-        }
-        if (mbmi->cfl_alpha_ind[1] != 0) {
           uint8_t *const dst_cr = pd->dst.buf;
           const int dst_stride_cr = pd->dst.stride;
           for (int j = 0; j < block_height; j++) {
             for (int i = 0; i < block_width; i++) {
+              dst_cb[dst_stride_cb * j + i] = xd->cfl->dc_pred[0];
               dst_cr[dst_stride_cr * j + i] = xd->cfl->dc_pred[1];
             }
           }
-          mbmi->cfl_alpha_ind[1] = 0;
+          mbmi->cfl_alpha_ind = 0;
+          mbmi->cfl_alpha_signs[0] = 1;
+          mbmi->cfl_alpha_signs[1] = 1;
         }
       }
     }

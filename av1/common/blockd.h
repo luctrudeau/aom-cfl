@@ -382,7 +382,8 @@ typedef struct {
 #endif  // CONFIG_WARPED_MOTION
 
 #if CONFIG_CFL
-  int cfl_alpha_ind[2];
+  int cfl_alpha_ind;
+  int cfl_alpha_signs[2];
 // Instrumentation for probabilities
 // double cfl_alpha[2];
 // double cfl_sLC[2];
@@ -505,7 +506,7 @@ typedef struct RefBuffer {
 
 #if CONFIG_CFL
 
-#define CFL_MAX_ALPHA_IND (4)
+#define CFL_MAX_ALPHA_IND (16)
 
 typedef struct {
   // Pixel buffer containing the Luma pixel used as the prediction for Chroma.

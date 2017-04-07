@@ -64,14 +64,30 @@ static INLINE int av1_is_directional_mode(PREDICTION_MODE mode,
 #endif  // CONFIG_EXT_INTRA
 
 #if CONFIG_CFL
+// Optimized using barrbrain's secret sauce.
+static const double cfl_alpha_codes[16][2] = { { 0, 0 },
+                                               { 0.040979, 0.033698 },
+                                               { 0.046883, 0.119568 },
+                                               { 0.122612, 0.041332 },
+                                               { 0.07343, 0.267272 },
+                                               { 0.247968, 0.053005 },
+                                               { 0.169956, 0.451542 },
+                                               { 0.492068, 0.19885 },
+                                               { 0.204593, 0.183029 },
+                                               { 1.003407, 0.480246 },
+                                               { 0.277097, 0.712143 },
+                                               { 0.56754, 1.067072 },
+                                               { 2.495618, 0.212118 },
+                                               { 1.738761, 0.077004 },
+                                               { 3.095779, 0.474077 },
+                                               { 1.194377, 1.949127 } };
+
 int cfl_dc_pred(MACROBLOCKD *const xd, const struct macroblockd_plane *const pd,
                 BLOCK_SIZE plane_bsize, TX_SIZE tx_size);
-int cfl_compute_alpha_ind(const CFL_CTX *const cfl, uint8_t *const src,
-                          int src_stride, BLOCK_SIZE bsize, int plane);
 
 void cfl_predict_block(const CFL_CTX *const cfl, uint8_t *const dst,
                        int dst_stride, int row, int col, TX_SIZE tx_size,
-                       int alpha_ind, int plane);
+                       int alpha_ind, int alpha_sign, int plane);
 
 int cfl_load(const CFL_CTX *const cfl, uint8_t *const output, int output_stride,
              int row, int col, int tx_block_width, int plane);

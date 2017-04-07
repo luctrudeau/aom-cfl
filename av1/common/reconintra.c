@@ -418,17 +418,6 @@ static const uint16_t *const orders_verta[BLOCK_SIZES] = {
 #endif  // CONFIG_EXT_PARTITION
 #endif  // CONFIG_EXT_PARTITION_TYPES
 
-#if CONFIG_CFL
-// Optimized quantization table and codes to reduce distortion.
-// Using the lloyds() function in octave with the sequences in subset 1
-// S. Lloyd Least squared quantization in PCM, IEEE Trans Inform Theory, Mar
-// 1982, no 2, p129-137
-static const double cfl_alpha_codes[CFL_MAX_ALPHA_IND] = { 0, 0.122874,
-                                                           0.286103, 0.854692 };
-static const double cfl_alpha_table[CFL_MAX_ALPHA_IND - 1] = {
-  0.074880, 0.188618, 0.451051
-};
-#endif
 static int av1_has_right(BLOCK_SIZE bsize, int mi_row, int mi_col,
                          int right_available,
 #if CONFIG_EXT_PARTITION_TYPES
@@ -2456,10 +2445,6 @@ void av1_init_intra_predictors(void) {
 }
 
 #if CONFIG_CFL
-// Temporary pixel buffer used to store the CfL prediction when we compute the
-// alpha index.
-static uint8_t tmp_pix[MAX_SB_SQUARE];
-
 int cfl_dc_pred(MACROBLOCKD *const xd, const struct macroblockd_plane *const pd,
                 BLOCK_SIZE plane_bsize, TX_SIZE tx_size) {
   const uint8_t *const dst = pd->dst.buf;
@@ -2487,46 +2472,17 @@ int cfl_dc_pred(MACROBLOCKD *const xd, const struct macroblockd_plane *const pd,
 
   return (sum + (num_pel >> 1)) / num_pel;
 }
-int cfl_compute_alpha_ind(const CFL_CTX *const cfl, uint8_t *const src,
-                          int src_stride, BLOCK_SIZE bsize, int plane) {
-  const int block_width = block_size_wide[bsize];
-  const int block_height = block_size_high[bsize];
-  int sLL = 0;
-  int sLC = 0;
-  int luma, chroma;
-
-  // Load CfL Prediction over the entire block
-  const int y_avg =
-      cfl_load(cfl, tmp_pix, MAX_SB_SIZE, 0, 0, block_width, block_height);
-
-  // Compute least squares parameter of the entire block
-  for (int j = 0; j < block_height; j++) {
-    for (int i = 0; i < block_width; i++) {
-      chroma = src[src_stride * j + i] - cfl->dc_pred[plane - 1];
-      luma = tmp_pix[MAX_SB_SIZE * j + i] - y_avg;
-      sLL += luma * luma;
-      sLC += luma * chroma;
-    }
-  }
-
-  const double alpha = (sLL) ? sLC / (double)sLL : 0;
-  const double a_alpha = fabs(alpha);
-
-  // Quantize alpha
-  int ind = 0;
-  while (ind < CFL_MAX_ALPHA_IND - 1 && cfl_alpha_table[ind] < a_alpha) ind++;
-
-  return (alpha == a_alpha) ? ind : -ind;
-}
 
 void cfl_predict_block(const CFL_CTX *const cfl, uint8_t *const dst,
                        int dst_stride, int row, int col, TX_SIZE tx_size,
-                       int alpha_ind, int plane) {
+                       int alpha_ind, int alpha_sign, int plane) {
   const int tx_block_width = tx_size_wide[tx_size];
   const int tx_block_height = tx_size_high[tx_size];
 
-  const double q_alpha = (alpha_ind >= 0) ? cfl_alpha_codes[alpha_ind]
-                                          : -cfl_alpha_codes[-alpha_ind];
+  const double q_alpha = (alpha_sign >= 0)
+                             ? cfl_alpha_codes[alpha_ind][plane - 1]
+                             : -cfl_alpha_codes[alpha_ind][plane - 1];
+
   const int y_avg =
       cfl_load(cfl, dst, dst_stride, row, col, tx_block_width, tx_block_height);
 

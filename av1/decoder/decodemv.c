@@ -21,6 +21,9 @@
 #if CONFIG_EXT_INTRA
 #include "av1/common/reconintra.h"
 #endif  // CONFIG_EXT_INTRA
+#if CONFIG_CFL
+#include "av1/common/reconintra.h"
+#endif  // CONFIG_CFL
 #include "av1/common/seg_common.h"
 #if CONFIG_WARPED_MOTION
 #include "av1/common/warped_motion.h"
@@ -157,22 +160,21 @@ static PREDICTION_MODE read_intra_mode_uv(AV1_COMMON *cm, MACROBLOCKD *xd,
 }
 
 #if CONFIG_CFL
-static void read_cfl_alphas(AV1_COMMON *cm, aom_reader *r, int alpha_ind[2]) {
+static int read_cfl_alphas(AV1_COMMON *cm, aom_reader *r, int signs[2]) {
 #if CONFIG_EC_ADAPT
   FRAME_CONTEXT *ec_ctx = xd->tile_ctx;
 #elif CONFIG_EC_MULTISYMBOL
   FRAME_CONTEXT *ec_ctx = cm->fc;
 #endif
 
-  const int symb = aom_read_symbol(r, ec_ctx->cfl_alpha_cdf, CFL_ALPHA_CDF_SIZE,
-                                   "cfl:alpha");
-  alpha_ind[0] = symb >> 2;
-  if (alpha_ind[0] && !aom_read_bit(r, "cfl:sign"))
-    alpha_ind[0] = -alpha_ind[0];
+  const int ind = aom_read_symbol(r, ec_ctx->cfl_alpha_cdf, CFL_ALPHA_CDF_SIZE,
+                                  "cfl:alpha");
+  if (cfl_alpha_codes[ind][0] != 0) signs[0] = aom_read_bit(r, "cfl:sign");
+  if (cfl_alpha_codes[ind][1] != 0) signs[1] = aom_read_bit(r, "cfl:sign");
 
-  alpha_ind[1] = symb % CFL_MAX_ALPHA_IND;
-  if (alpha_ind[1] && !aom_read_bit(r, "cfl:sign"))
-    alpha_ind[1] = -alpha_ind[1];
+  printf("%d\n", ind);
+
+  return ind;
 }
 #endif
 
@@ -988,10 +990,11 @@ static void read_intra_frame_mode_info(AV1_COMMON *const cm,
 #if CONFIG_CFL
   if (mbmi->uv_mode == DC_PRED) {
     if (mbmi->skip) {
-      mbmi->cfl_alpha_ind[0] = 0;
-      mbmi->cfl_alpha_ind[1] = 0;
+      mbmi->cfl_alpha_ind = 0;
+      mbmi->cfl_alpha_signs[0] = 1;
+      mbmi->cfl_alpha_signs[1] = 1;
     } else {
-      read_cfl_alphas(cm, r, mbmi->cfl_alpha_ind);
+      mbmi->cfl_alpha_ind = read_cfl_alphas(cm, r, mbmi->cfl_alpha_signs);
     }
   }
 #endif

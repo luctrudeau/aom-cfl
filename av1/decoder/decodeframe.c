@@ -558,12 +558,16 @@ static void predict_and_reconstruct_intra_block(
                           row, plane);
 #if CONFIG_CFL
   if (plane != 0 && mbmi->uv_mode == DC_PRED) {
-    if (col == 0 && row == 0) {
-      xd->cfl->dc_pred[plane - 1] =
+    if (col == 0 && row == 0 && plane == 1) {
+      xd->cfl->dc_pred[0] =
           cfl_dc_pred(xd, pd, get_plane_block_size(mbmi->sb_type, pd), tx_size);
+      struct macroblockd_plane *const pd_cr = &xd->plane[2];
+      xd->cfl->dc_pred[1] = cfl_dc_pred(
+          xd, pd_cr, get_plane_block_size(mbmi->sb_type, pd_cr), tx_size);
     }
     cfl_predict_block(xd->cfl, dst, pd->dst.stride, row, col, tx_size,
-                      mbmi->cfl_alpha_ind[plane - 1], plane);
+                      mbmi->cfl_alpha_ind, mbmi->cfl_alpha_signs[plane - 1],
+                      plane);
   }
 #endif
   if (!mbmi->skip) {
