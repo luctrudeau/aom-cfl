@@ -2222,15 +2222,14 @@ static const aom_cdf_prob
 #if CONFIG_CFL
 static const aom_cdf_prob default_cfl_alpha_cdf[CFL_ALPHA_CDF_SIZE] = {
   // Uniform CDF (used as a starting point to find the real distribution)
-  2048,  4096,  6144,  8192,  10240, 12288, 14336, 16384, 18432,
-  20480, 22528, 24576, 26624, 28672, 30720, 32768
-
+  /*
+  2048, 4096, 6144, 8192, 10240, 12288, 14336, 16384, 18432, 20480, 22528,
+  24576, 26624, 28672, 30720, 32768
+  */
   // CDF after 1 iteration (AV1 over subset1)
   // TODO(ltrudeau) Update these probabilities (bug fixes might have impacts)
-  /*
-   4765,  15324, 19976, 24959, 26061, 27604, 28538, 29409, 31570,
-  31750, 32396, 32634, 32643, 32673, 32692, 32768
-  */
+  3132,  11196, 16816, 20140, 22739, 25861, 27224, 28622, 30001,
+  30625, 31527, 32172, 32497, 32688, 32714, 32768
 
   // Mimic 1D Quant (to match previous results)
   /*

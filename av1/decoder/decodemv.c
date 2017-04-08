@@ -176,7 +176,7 @@ static int read_cfl_alphas(AV1_COMMON *cm, aom_reader *r, int signs[2]) {
   if (cfl_alpha_codes[ind][1] != 0.0) signs[1] = aom_read_bit(r, "cfl:sign");
 
   // Used to obtain index probabilities
-  printf("%d\n", ind);
+  // printf("%d\n", ind);
 
   return ind;
 }
