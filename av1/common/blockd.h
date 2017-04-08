@@ -386,6 +386,7 @@ typedef struct {
   int cfl_alpha_ind;
   // Signs of alpha Cb and alpha Cr
   int cfl_alpha_signs[2];
+  double cfl_alphas[2];
 // Instrumentation for probabilities
 // double cfl_alpha[2];
 // double cfl_sLC[2];

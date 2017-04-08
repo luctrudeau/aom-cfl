@@ -1018,7 +1018,7 @@ void av1_encode_sb_supertx(AV1_COMMON *cm, MACROBLOCK *x, BLOCK_SIZE bsize) {
 static uint8_t tmp_pix[MAX_SB_SQUARE];
 
 int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
-                          BLOCK_SIZE bsize, int signs[2]) {
+                          BLOCK_SIZE bsize, int signs[2], double alphas[2]) {
   const struct macroblock_plane *const p_cb = &x->plane[1];
   const struct macroblock_plane *const p_cr = &x->plane[2];
 
@@ -1053,6 +1053,9 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
 
   const double alpha_cb = (sLL) ? sLCb / (double)sLL : 0;
   const double alpha_cr = (sLL) ? sLCr / (double)sLL : 0;
+
+  alphas[0] = alpha_cb;
+  alphas[1] = alpha_cr;
 
   const double a_alpha_cb = fabs(alpha_cb);
   const double a_alpha_cr = fabs(alpha_cr);
@@ -1130,8 +1133,8 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
 
       xd->cfl->dc_pred_size = plane_bsize;
       // Compute alpha on first block but do it over the entire block
-      mbmi->cfl_alpha_ind =
-          cfl_compute_alpha_ind(x, cfl, plane_bsize, mbmi->cfl_alpha_signs);
+      mbmi->cfl_alpha_ind = cfl_compute_alpha_ind(
+          x, cfl, plane_bsize, mbmi->cfl_alpha_signs, mbmi->cfl_alphas);
     }
 
     if (plane == 2 && blk_row == 0 && blk_col == 0) {
