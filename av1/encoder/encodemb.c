@@ -1062,8 +1062,8 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
   signs[1] = alpha_cb - alpha_cr >= 0;
   signs[1] ^= signs [0];
 
-  const double a_alpha_cb = (signs[0] ? 1 : -1) * (signs[1] ? alpha_cb : alpha_cr);
-  const double a_alpha_cr = (signs[0] ? 1 : -1) * (signs[1] ? alpha_cr : alpha_cb);
+  const double a_alpha_cb = (signs[0] ? 1 : -1) * (signs[1] ? alpha_cr : alpha_cb);
+  const double a_alpha_cr = (signs[0] ? 1 : -1) * (signs[1] ? alpha_cb : alpha_cr);
 
   // Index of the closest alpha Cb nd Cr pair.
   int ind = 0;
