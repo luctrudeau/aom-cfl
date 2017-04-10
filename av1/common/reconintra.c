@@ -2450,14 +2450,14 @@ void cfl_dc_pred(MACROBLOCKD *const xd, CFL_CTX *const cfl,
 
 void cfl_predict_block(const CFL_CTX *const cfl, uint8_t *const dst,
                        int dst_stride, int row, int col, TX_SIZE tx_size,
-                       int alpha_ind, int alpha_sign, int plane) {
+                       int alpha_ind, int plane) {
   const int tx_block_width = tx_size_wide[tx_size];
   const int tx_block_height = tx_size_high[tx_size];
 
-  // Get quantized alpha from index (a sign of 0 implies negative alpha)
-  const double q_alpha = (alpha_sign != 0)
-                             ? cfl_alpha_codes[alpha_ind][plane - 1]
-                             : -cfl_alpha_codes[alpha_ind][plane - 1];
+  // Get quantized alpha from index, reflection in sign and planes
+  const int q_sign = (alpha_ind & 2) - 1;
+  const int q_plane = (alpha_ind & 1) ^ (plane - 1);
+  const double q_alpha = q_sign * cfl_alpha_codes[alpha_ind >> 2][q_plane];
 
   const int y_avg =
       cfl_load(cfl, dst, dst_stride, row, col, tx_block_width, tx_block_height);

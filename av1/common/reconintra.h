@@ -79,13 +79,21 @@ static const double cfl_alpha_codes[CFL_MAX_ALPHA_IND][2] = {
   { 1.194377, 1.949127 }
   */
   // barrbrain's subset 3 training
+  /*
   { 0.0, 0.0 },           { 0.042698, 0.043504 }, { 0.120795, 0.056032 },
   { 0.061485, 0.15329 },  { 0.22606, 0.058298 },  { 0.201798, 0.185862 },
   { 0.102267, 0.332564 }, { 0.378463, 0.09758 },  { 0.346785, 0.322548 },
   { 0.599929, 0.175545 }, { 0.20524, 0.604609 },  { 0.555772, 0.543228 },
   { 0.48154, 1.155061 },  { 1.188442, 0.447334 }, { 2.432934, 0.676077 },
   { 1.373512, 2.382514 }
-
+  */
+  // barrbrain's subset 3 training with rotation
+  { 0.0, 0.0 },            { 0.060757, -0.018166 }, { 0.120307, 0.042797 },
+  { 0.129657, -0.076096 }, { 0.223718, -0.022905 }, { 0.232197, -0.153827 },
+  { 0.262194, 0.132406 },  { 0.38399, -0.048115 },  { 0.368991, -0.248804 },
+  { 0.519847, 0.222658 },  { 0.609148, -0.139242 }, { 0.547771, -0.400825 },
+  { 0.911091, -0.514503 }, { 1.143893, 0.128324 },  { 1.573573, -0.628558 },
+  { 3.01412, -1.182865 }
   // Mimic 1D Quant (to match previous results)
   /*
   { 0.0, 0.0 },           { 0.0, 0.122874 },      { 0.0, 0.286103 },
@@ -102,7 +110,7 @@ void cfl_dc_pred(MACROBLOCKD *const xd, CFL_CTX *const cfl,
 
 void cfl_predict_block(const CFL_CTX *const cfl, uint8_t *const dst,
                        int dst_stride, int row, int col, TX_SIZE tx_size,
-                       int alpha_ind, int alpha_sign, int plane);
+                       int alpha_ind, int plane);
 
 int cfl_load(const CFL_CTX *const cfl, uint8_t *const output, int output_stride,
              int row, int col, int tx_block_width, int plane);

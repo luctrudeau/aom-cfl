@@ -1018,7 +1018,7 @@ void av1_encode_sb_supertx(AV1_COMMON *cm, MACROBLOCK *x, BLOCK_SIZE bsize) {
 static uint8_t tmp_pix[MAX_SB_SQUARE];
 
 int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
-                          BLOCK_SIZE bsize, int signs[2], double alphas[2]) {
+                          BLOCK_SIZE bsize, double alphas[2]) {
   const struct macroblock_plane *const p_cb = &x->plane[1];
   const struct macroblock_plane *const p_cr = &x->plane[2];
 
@@ -1034,6 +1034,7 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
   int sLCb = 0;
   int sLCr = 0;
   int luma, cb, cr;
+  int signs[2];
 
   // Load CfL Prediction over the entire block
   const int y_avg =
@@ -1057,8 +1058,12 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
   alphas[0] = alpha_cb;
   alphas[1] = alpha_cr;
 
-  const double a_alpha_cb = fabs(alpha_cb);
-  const double a_alpha_cr = fabs(alpha_cr);
+  signs[0] = alpha_cb + alpha_cr >= 0;
+  signs[1] = alpha_cb - alpha_cr >= 0;
+  signs[1] ^= signs [0];
+
+  const double a_alpha_cb = (signs[0] ? 1 : -1) * (signs[1] ? alpha_cb : alpha_cr);
+  const double a_alpha_cr = (signs[0] ? 1 : -1) * (signs[1] ? alpha_cr : alpha_cb);
 
   // Index of the closest alpha Cb nd Cr pair.
   int ind = 0;
@@ -1074,12 +1079,7 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
     }
   }
 
-  // sign == 1 implies positive, sign == 0 implies negative
-  // (0 is always positive)
-  signs[0] = (ind) ? alpha_cb == a_alpha_cb : 1;
-  signs[1] = (ind) ? alpha_cr == a_alpha_cr : 1;
-
-  return ind;
+  return ind << 2 | signs[0] << 1 | signs[1];
 }
 #endif
 
@@ -1134,7 +1134,7 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
       xd->cfl->dc_pred_size = plane_bsize;
       // Compute alpha on first block but do it over the entire block
       mbmi->cfl_alpha_ind = cfl_compute_alpha_ind(
-          x, cfl, plane_bsize, mbmi->cfl_alpha_signs, mbmi->cfl_alphas);
+          x, cfl, plane_bsize, mbmi->cfl_alphas);
     }
 
     if (plane == 2 && blk_row == 0 && blk_col == 0) {
@@ -1143,8 +1143,7 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
     }
 
     cfl_predict_block(cfl, dst, dst_stride, blk_row, blk_col, tx_size,
-                      mbmi->cfl_alpha_ind, mbmi->cfl_alpha_signs[plane - 1],
-                      plane);
+                      mbmi->cfl_alpha_ind, plane);
   }
 #endif
 
@@ -1321,8 +1320,6 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
             }
           }
           mbmi->cfl_alpha_ind = 0;
-          mbmi->cfl_alpha_signs[0] = 1;
-          mbmi->cfl_alpha_signs[1] = 1;
         }
       }
     }
