@@ -161,7 +161,7 @@ static PREDICTION_MODE read_intra_mode_uv(AV1_COMMON *cm, MACROBLOCKD *xd,
 
 #if CONFIG_CFL
 static int read_cfl_alphas(AV1_COMMON *cm, aom_reader *r) {
-  int signs[2];
+  int signs[2] = { 0, 0 };
 #if CONFIG_EC_ADAPT
   FRAME_CONTEXT *ec_ctx = xd->tile_ctx;
 #elif CONFIG_EC_MULTISYMBOL
