@@ -1544,14 +1544,13 @@ static void write_intra_uv_mode(FRAME_CONTEXT *frame_ctx,
 #if CONFIG_CFL
 static void write_cfl_alphas(FRAME_CONTEXT *const frame_ctx, const int ind,
                              aom_writer *w) {
-  assert((ind >> 2) < CFL_MAX_ALPHA_IND);
+  assert((ind >> 1) < CFL_MAX_ALPHA_IND);
 
   // Write a symbol representing a combination of alpha Cb and alpha Cr.
-  aom_write_symbol(w, ind >> 2, frame_ctx->cfl_alpha_cdf, CFL_ALPHA_CDF_SIZE);
+  aom_write_symbol(w, ind >> 1, frame_ctx->cfl_alpha_cdf, CFL_ALPHA_CDF_SIZE);
 
   // Signs are only signaled for nonzero index.
-  if ((ind >> 2) != 0) aom_write_bit(w, !!(ind & 2));
-  if ((ind >> 2) != 0) aom_write_bit(w, !!(ind & 1));
+  if ((ind >> 1) != 0) aom_write_bit(w, ind & 1);
 }
 #endif
 

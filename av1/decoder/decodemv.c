@@ -161,7 +161,7 @@ static PREDICTION_MODE read_intra_mode_uv(AV1_COMMON *cm, MACROBLOCKD *xd,
 
 #if CONFIG_CFL
 static int read_cfl_alphas(AV1_COMMON *cm, aom_reader *r) {
-  int signs[2] = { 0, 0 };
+  int sign = 0;
 #if CONFIG_EC_ADAPT
   FRAME_CONTEXT *ec_ctx = xd->tile_ctx;
 #elif CONFIG_EC_MULTISYMBOL
@@ -172,13 +172,12 @@ static int read_cfl_alphas(AV1_COMMON *cm, aom_reader *r) {
                                   "cfl:alpha");
   // Signs are only coded for nonzero index
   // The first flips the sign, the second the plane
-  if (ind != 0) signs[0] = aom_read_bit(r, "cfl:sign");
-  if (ind != 0) signs[1] = aom_read_bit(r, "cfl:sign");
+  if (ind != 0) sign = aom_read_bit(r, "cfl:sign");
 
   // Used to obtain index probabilities
   // printf("%d\n", ind);
 
-  return ind << 2 | signs[0] << 1 | signs[1];
+  return ind << 1 | sign;
 }
 #endif
 
