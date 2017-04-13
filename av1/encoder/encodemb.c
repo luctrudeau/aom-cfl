@@ -1034,6 +1034,7 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
   double sLCb = 0;
   double sLCr = 0;
   double luma, cb, cr;
+  double min_dist = 0;
 
   // Load CfL Prediction over the entire block
   const double y_avg =
@@ -1048,6 +1049,9 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
       sLL += luma * luma;
       sLCb += luma * cb;
       sLCr += luma * cr;
+      cb = ceil(cb - 0.5);
+      cr = ceil(cr - 0.5);
+      min_dist += cb * cb + cr * cr;
     }
   }
 
@@ -1063,11 +1067,20 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
   // Index of the closest alpha Cb nd Cr pair.
   int ind = 0;
   // Euclidean distance, sqrt is not needed, because we only care for min.
-  double min_dist = pow(cfl_alpha_codes[0][0] - a_alpha_cb, 2) +
-                    pow(cfl_alpha_codes[0][1] - a_alpha_cr, 2);
   for (int i = 1; i < CFL_MAX_ALPHA_IND; i++) {
-    double dist = pow(cfl_alpha_codes[i][0] - a_alpha_cb, 2) +
-                  pow(cfl_alpha_codes[i][1] - a_alpha_cr, 2);
+    const double code_cb = (alpha_cb == a_alpha_cb ? 1 : -1) * cfl_alpha_codes[i][0];
+    const double code_cr = (alpha_cr == a_alpha_cr ? 1 : -1) * cfl_alpha_codes[i][1];
+    double dist = 0;
+    for (int j = 0; j < block_height; j++) {
+      for (int k = 0; k < block_width; k++) {
+        cb = src_cb[src_stride_cb * j + k];
+        cr = src_cr[src_stride_cr * j + k];
+        luma = tmp_pix[MAX_SB_SIZE * j + k] - y_avg;
+        cb -= floor(code_cb * luma + cfl->dc_pred[0] + 0.5);
+        cr -= floor(code_cr * luma + cfl->dc_pred[1] + 0.5);
+        dist += cb * cb + cr * cr;
+      }
+    }
     if (dist < min_dist) {
       min_dist = dist;
       ind = i;
