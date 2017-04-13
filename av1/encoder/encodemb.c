@@ -1033,6 +1033,7 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
   int sLL = 0;
   int sLCb = 0;
   int sLCr = 0;
+  double min_dist = 0;
   int luma, cb, cr;
   int signs[2];
 
@@ -1049,6 +1050,7 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
       sLL += luma * luma;
       sLCb += luma * cb;
       sLCr += luma * cr;
+      min_dist += cb * cb + cr * cr;
     }
   }
 
@@ -1062,17 +1064,23 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
   signs[1] = alpha_cb - alpha_cr >= 0;
   signs[1] ^= signs [0];
 
-  const double a_alpha_cb = (signs[0] ? 1 : -1) * (signs[1] ? alpha_cr : alpha_cb);
-  const double a_alpha_cr = (signs[0] ? 1 : -1) * (signs[1] ? alpha_cb : alpha_cr);
-
   // Index of the closest alpha Cb nd Cr pair.
   int ind = 0;
   // Euclidean distance, sqrt is not needed, because we only care for min.
-  double min_dist = pow(cfl_alpha_codes[0][0] - a_alpha_cb, 2) +
-                    pow(cfl_alpha_codes[0][1] - a_alpha_cr, 2);
   for (int i = 1; i < CFL_MAX_ALPHA_IND; i++) {
-    double dist = pow(cfl_alpha_codes[i][0] - a_alpha_cb, 2) +
-                  pow(cfl_alpha_codes[i][1] - a_alpha_cr, 2);
+    const double a_alpha_cb = (signs[0] ? 1 : -1) * cfl_alpha_codes[i][signs[1]^0];
+    const double a_alpha_cr = (signs[0] ? 1 : -1) * cfl_alpha_codes[i][signs[1]^1];
+    double dist = 0;
+    for (int j = 0; j < block_height; j++) {
+      for (int k = 0; k < block_width; k++) {
+        cb = src_cb[src_stride_cb * j + k] - cfl->dc_pred[0];
+        cr = src_cr[src_stride_cr * j + k] - cfl->dc_pred[1];
+        luma = tmp_pix[MAX_SB_SIZE * j + k] - y_avg;
+        cb -= (int)round(a_alpha_cb * luma);
+        cr -= (int)round(a_alpha_cr * luma);
+        dist += cb * cb + cr * cr;
+      }
+    }
     if (dist < min_dist) {
       min_dist = dist;
       ind = i;
