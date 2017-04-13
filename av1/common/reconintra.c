@@ -2455,9 +2455,8 @@ void cfl_predict_block(const CFL_CTX *const cfl, uint8_t *const dst,
   const int tx_block_height = tx_size_high[tx_size];
 
   // Get quantized alpha from index, reflection in sign and planes
-  const int q_sign = (alpha_ind & 2) - 1;
   const int q_plane = (alpha_ind & 1) ^ (plane - 1);
-  const double q_alpha = q_sign * cfl_alpha_codes[alpha_ind >> 2][q_plane];
+  const double q_alpha = cfl_alpha_codes[alpha_ind >> 1][q_plane];
 
   const int y_avg =
       cfl_load(cfl, dst, dst_stride, row, col, tx_block_width, tx_block_height);

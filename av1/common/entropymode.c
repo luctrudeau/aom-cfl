@@ -2238,8 +2238,13 @@ static const aom_cdf_prob default_cfl_alpha_cdf[CFL_ALPHA_CDF_SIZE] = {
   31656, 32120, 32540, 32658, 32746, 32759, 32768
   */
   // Even more of barrbrain's secret sauce
+  /*
   4270,  13097, 16536, 21856, 24178, 27110, 28188, 29380, 30939,
   31288, 31771, 32421, 32634, 32699, 32759, 32768
+  */
+  // CDF after 1 iteration (AV1 over subset1) 31 points
+  4137,   5089,  8755, 14369, 17958, 19817, 24164, 26663, 28190,
+  28558, 30181, 31100, 32014, 32537, 32649, 32768
   // Mimic 1D Quant (to match previous results)
   /*
   8459,  11198, 12077, 12296, 16363, 20538, 21978, 22382,

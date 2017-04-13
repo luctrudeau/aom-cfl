@@ -1034,7 +1034,7 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
   int sLCb = 0;
   int sLCr = 0;
   int luma, cb, cr;
-  int signs[2];
+  int sign;
 
   // Load CfL Prediction over the entire block
   const int y_avg =
@@ -1058,12 +1058,10 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
   alphas[0] = alpha_cb;
   alphas[1] = alpha_cr;
 
-  signs[0] = alpha_cb + alpha_cr >= 0;
-  signs[1] = alpha_cb - alpha_cr >= 0;
-  signs[1] ^= signs [0];
+  sign = alpha_cb >= alpha_cr;
 
-  const double a_alpha_cb = (signs[0] ? 1 : -1) * (signs[1] ? alpha_cr : alpha_cb);
-  const double a_alpha_cr = (signs[0] ? 1 : -1) * (signs[1] ? alpha_cb : alpha_cr);
+  const double a_alpha_cb = (sign ? alpha_cr : alpha_cb);
+  const double a_alpha_cr = (sign ? alpha_cb : alpha_cr);
 
   // Index of the closest alpha Cb nd Cr pair.
   int ind = 0;
@@ -1079,7 +1077,7 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
     }
   }
 
-  return ind << 2 | signs[0] << 1 | signs[1];
+  return ind << 1 | sign;
 }
 #endif
 
