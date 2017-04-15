@@ -2459,7 +2459,7 @@ void cfl_predict_block(const CFL_CTX *const cfl, uint8_t *const dst,
                              ? cfl_alpha_codes[alpha_ind][plane - 1]
                              : -cfl_alpha_codes[alpha_ind][plane - 1];
 
-  const int y_avg =
+  const double y_avg =
       cfl_load(cfl, dst, dst_stride, row, col, tx_block_width, tx_block_height);
 
   int dst_row = 0;
@@ -2467,14 +2467,15 @@ void cfl_predict_block(const CFL_CTX *const cfl, uint8_t *const dst,
     for (int i = 0; i < tx_block_width; i++) {
       double luma = dst[dst_row + i] - y_avg;
       dst[dst_row + i] =
-          (uint8_t)round(q_alpha * luma + cfl->dc_pred[plane - 1]);
+          (uint8_t)(q_alpha * luma + cfl->dc_pred[plane - 1] + 0.5);
     }
     dst_row += dst_stride;
   }
 }
 
-int cfl_load(const CFL_CTX *const cfl, uint8_t *const output, int output_stride,
-             int row, int col, int block_width, int block_height) {
+double cfl_load(const CFL_CTX *const cfl, uint8_t *const output,
+                int output_stride, int row, int col, int block_width,
+                int block_height) {
   // TODO(ltrudeau) adjust to Chroma subsampling (hardcoded to 4:2:0)
   const int step = 2;
   const int tx_off_log2 = tx_size_wide_log2[0];
@@ -2558,7 +2559,7 @@ int cfl_load(const CFL_CTX *const cfl, uint8_t *const output, int output_stride,
     }
     output_row_offset += output_stride;
   }
-  return (avg + (num_pel >> 1)) / num_pel;
+  return avg / (double)num_pel;
 }
 
 void cfl_store(CFL_CTX *const cfl, uint8_t *const input, int input_stride,

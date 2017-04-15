@@ -1030,14 +1030,13 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
 
   const int block_width = block_size_wide[bsize];
   const int block_height = block_size_high[bsize];
-  int sLL = 0;
+  double sLL = 0;
   double sLCb = 0;
   double sLCr = 0;
-  double cb, cr;
-  int luma;
+  double luma, cb, cr;
 
   // Load CfL Prediction over the entire block
-  const int y_avg =
+  const double y_avg =
       cfl_load(cfl, tmp_pix, MAX_SB_SIZE, 0, 0, block_width, block_height);
 
   // Compute least squares parameter of the entire block
@@ -1052,8 +1051,8 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
     }
   }
 
-  const double alpha_cb = (sLL) ? sLCb / (double)sLL : 0;
-  const double alpha_cr = (sLL) ? sLCr / (double)sLL : 0;
+  const double alpha_cb = (sLL) ? sLCb / sLL : 0;
+  const double alpha_cr = (sLL) ? sLCr / sLL : 0;
 
   alphas[0] = alpha_cb;
   alphas[1] = alpha_cr;
@@ -1317,8 +1316,10 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
           const int dst_stride_cr = pd->dst.stride;
           for (int j = 0; j < block_height; j++) {
             for (int i = 0; i < block_width; i++) {
-              dst_cb[dst_stride_cb * j + i] = (int)(xd->cfl->dc_pred[0] + 0.5);
-              dst_cr[dst_stride_cr * j + i] = (int)(xd->cfl->dc_pred[1] + 0.5);
+              dst_cb[dst_stride_cb * j + i] =
+                  (uint8_t)(xd->cfl->dc_pred[0] + 0.5);
+              dst_cr[dst_stride_cr * j + i] =
+                  (uint8_t)(xd->cfl->dc_pred[1] + 0.5);
             }
           }
           mbmi->cfl_alpha_ind = 0;
