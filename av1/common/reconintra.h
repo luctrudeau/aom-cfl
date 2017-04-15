@@ -120,8 +120,9 @@ void cfl_predict_block(const CFL_CTX *const cfl, uint8_t *const dst,
                        int dst_stride, int row, int col, TX_SIZE tx_size,
                        int alpha_ind, int plane);
 
-int cfl_load(const CFL_CTX *const cfl, uint8_t *const output, int output_stride,
-             int row, int col, int tx_block_width, int plane);
+double cfl_load(const CFL_CTX *const cfl, uint8_t *const output,
+                int output_stride, int row, int col, int tx_block_width,
+                int plane);
 
 void cfl_store(CFL_CTX *const cfl, uint8_t *const input, int input_stride,
                int row, int col, int tx_blk_size);

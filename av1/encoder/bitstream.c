@@ -2041,6 +2041,8 @@ static void write_mb_modes_kf(AV1_COMMON *cm, const MACROBLOCKD *xd,
       assert(mbmi->cfl_alpha_ind == 0);
     } else {
       write_cfl_alphas(ec_ctx, mbmi->cfl_alpha_ind, w);
+      // Instrumentation to get signaled alphas (not perfect, because of
+      // rollbacks, but does a good job)
       // printf("%f, %f\n", mbmi->cfl_alphas[0], mbmi->cfl_alphas[1]);
     }
   }
