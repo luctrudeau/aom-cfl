@@ -522,7 +522,7 @@ typedef struct {
   // CfL Performs its own block level DC_PRED
   int is_dc_computed;
   int is_summing_pixels;
-  int dc_pred[2];
+  double dc_pred[2];
 
   // Count the number of TX blocks in a predicted block to know when you are at
   // the last one, so you can check for skips (there has to be a better way to

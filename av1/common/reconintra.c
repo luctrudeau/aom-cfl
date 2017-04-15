@@ -2444,8 +2444,8 @@ void cfl_dc_pred(MACROBLOCKD *const xd, CFL_CTX *const cfl,
     sum_cr += block_height * 129;
   }
 
-  cfl->dc_pred[0] = (sum_cb + (num_pel >> 1)) / num_pel;
-  cfl->dc_pred[1] = (sum_cr + (num_pel >> 1)) / num_pel;
+  cfl->dc_pred[0] = sum_cb / (double)num_pel;
+  cfl->dc_pred[1] = sum_cr / (double)num_pel;
 }
 
 void cfl_predict_block(const CFL_CTX *const cfl, uint8_t *const dst,
@@ -2467,7 +2467,7 @@ void cfl_predict_block(const CFL_CTX *const cfl, uint8_t *const dst,
     for (int i = 0; i < tx_block_width; i++) {
       double luma = dst[dst_row + i] - y_avg;
       dst[dst_row + i] =
-          (uint8_t)round(q_alpha * luma) + cfl->dc_pred[plane - 1];
+          (uint8_t)round(q_alpha * luma + cfl->dc_pred[plane - 1]);
     }
     dst_row += dst_stride;
   }
