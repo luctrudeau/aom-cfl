@@ -1016,6 +1016,10 @@ void av1_encode_sb_supertx(AV1_COMMON *cm, MACROBLOCK *x, BLOCK_SIZE bsize) {
 // Temporary pixel buffer used to store the CfL prediction when we compute the
 // alpha index.
 static uint8_t tmp_pix[MAX_SB_SQUARE];
+static const int cfl_cost[] = {
+  659,  2257, 2389, 2790, 3049, 3028, 3322, 3717, 3509, 3917, 3912,
+  3639, 3984, 4255, 4467, 4494
+};
 
 int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
                           BLOCK_SIZE bsize, int signs[2], double alphas[2]) {
@@ -1067,6 +1071,7 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
   // Index of the closest alpha Cb nd Cr pair.
   int ind = 0;
   // Euclidean distance, sqrt is not needed, because we only care for min.
+  min_dist = RDCOST_DBL(x->rdmult, x->rddiv, *cfl_cost >> 4, min_dist);
   for (int i = 1; i < CFL_MAX_ALPHA_IND; i++) {
     const double code_cb = (alpha_cb == a_alpha_cb ? 1 : -1) * cfl_alpha_codes[i][0];
     const double code_cr = (alpha_cr == a_alpha_cr ? 1 : -1) * cfl_alpha_codes[i][1];
@@ -1081,6 +1086,7 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
         dist += cb * cb + cr * cr;
       }
     }
+    dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[i] >> 4, dist);
     if (dist < min_dist) {
       min_dist = dist;
       ind = i;
