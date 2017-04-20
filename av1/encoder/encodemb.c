@@ -1019,6 +1019,11 @@ static uint8_t tmp_pix[MAX_SB_SQUARE];
 
 int sqr(int x) { return x * x; }
 
+static const int cfl_cost[] = {
+  588,  2446, 2385, 3054, 3168, 3021, 3330, 3793,
+  3495, 4006, 3932, 3582, 3976, 4331, 4538, 4560
+};
+
 int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
                           BLOCK_SIZE bsize, int signs[2], double alphas[2]) {
   const struct macroblock_plane *const p_cb = &x->plane[1];
@@ -1041,7 +1046,7 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
   // Predictions using negative alpha
   int cb_pred_m, cr_pred_m;
   double luma;
-  int min_dist = 0;
+  double min_dist = 0;
 
   // Load CfL Prediction over the entire block
   const double y_avg =
@@ -1063,6 +1068,7 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
       // sLCr += luma * cr;
     }
   }
+  min_dist = RDCOST_DBL(x->rdmult, x->rddiv, *cfl_cost >> 4, min_dist);
   // First code as current best
   signs[0] = 1;
   signs[1] = 1;
@@ -1082,7 +1088,7 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
   // Euclidean distance, sqrt is not needed, because we only care for min.
   // double min_dist = pow(cfl_alpha_codes[0][0] - a_alpha_cb, 2) +
   //                  pow(cfl_alpha_codes[0][1] - a_alpha_cr, 2);
-  int dist, dist1, dist2, dist3;
+  double dist, dist1, dist2, dist3;
   for (int c = 1; c < CFL_MAX_ALPHA_IND; c++) {
     dist = 0;
     dist1 = 0;
@@ -1110,6 +1116,7 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
         dist3 += sqr(cb - cb_pred_m) + sqr(cr - cr_pred_m);
       }
     }
+    dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4, dist);
     if (dist < min_dist) {
       min_dist = dist;
       ind = c;

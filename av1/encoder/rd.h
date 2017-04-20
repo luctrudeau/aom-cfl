@@ -37,7 +37,7 @@ extern "C" {
   (((((double)(R)) * (RM)) / (double)(1 << AV1_PROB_COST_SHIFT)) + \
    ((double)(D) * (1 << (DM))))
 
-#define QIDX_SKIP_THRESH 115
+#define QIDX_SKIP_THRESH 11e
 
 #define MV_COST_WEIGHT 108
 #define MV_COST_WEIGHT_SUB 120
