@@ -2227,6 +2227,8 @@ static const aom_cdf_prob default_cfl_alpha_cdf[CFL_ALPHA_CDF_SIZE] = {
   24576, 26624, 28672, 30720, 32768
   */
   // CDF after 1 iteration (AV1 over subset1)
+  7703,  11687, 17187, 19857, 21454, 24075, 25937, 26753, 27952,
+  29145, 29645, 30628, 31386, 31736, 32268, 32768
   // TODO(ltrudeau) Update these probabilities (bug fixes might have impacts)
   /*
   3132,  11196, 16816, 20140, 22739, 25861, 27224, 28622, 30001,
@@ -2252,8 +2254,10 @@ static const aom_cdf_prob default_cfl_alpha_cdf[CFL_ALPHA_CDF_SIZE] = {
   28110, 30214, 31016, 31146, 32015, 32548, 32754, 32768,
   */
   // 2D Quant (from notebook + cheating on 0)
+  /*
   6509,  13553, 15291, 15740, 19828, 24084, 25250, 25646, 28028,
   30111, 31050, 31211, 31562, 32638, 32755, 32768
+  */
   // Mimic 1D Quant (to match previous results)
   /*
   8459,  11198, 12077, 12296, 16363, 20538, 21978, 22382,
