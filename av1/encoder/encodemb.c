@@ -1058,14 +1058,8 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
   // Compute least squares parameter of the entire block
   for (int j = 0; j < block_height; j++) {
     for (int i = 0; i < block_width; i++) {
-      cb = src_cb[src_stride_cb * j + i] - dc_pred_cb;
-      cr = src_cr[src_stride_cr * j + i] - dc_pred_cr;
-      luma = tmp_pix[MAX_SB_SIZE * j + i] - y_avg;
-      // IMPORTANT: FIRST CODE IS ASSUMED TO BE (0,0)
-      min_dist += sqr(cb) + sqr(cr);
-      // sLL += luma * luma;
-      // sLCb += luma * cb;
-      // sLCr += luma * cr;
+      min_dist += sqr(src_cb[src_stride_cb * j + i] - dc_pred_cb) +
+                  sqr(src_cr[src_stride_cr * j + i] - dc_pred_cr);
     }
   }
   min_dist = RDCOST_DBL(x->rdmult, x->rddiv, *cfl_cost >> 4, min_dist);
@@ -1117,6 +1111,9 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
       }
     }
     dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4, dist);
+    dist1 = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4, dist1);
+    dist2 = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4, dist2);
+    dist3 = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4, dist3);
     if (dist < min_dist) {
       min_dist = dist;
       ind = c;
