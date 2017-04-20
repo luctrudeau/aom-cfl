@@ -534,6 +534,7 @@ typedef struct {
   // This is only used to validate CfL block level DC_PRED
   int dc_pred_size;
 } CFL_CTX;
+
 #endif
 
 typedef struct macroblockd {

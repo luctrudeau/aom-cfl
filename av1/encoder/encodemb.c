@@ -1017,6 +1017,8 @@ void av1_encode_sb_supertx(AV1_COMMON *cm, MACROBLOCK *x, BLOCK_SIZE bsize) {
 // alpha index.
 static uint8_t tmp_pix[MAX_SB_SQUARE];
 
+int sqr(int x) { return x * x; }
+
 int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
                           BLOCK_SIZE bsize, int signs[2], double alphas[2]) {
   const struct macroblock_plane *const p_cb = &x->plane[1];
@@ -1030,54 +1032,117 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
 
   const int block_width = block_size_wide[bsize];
   const int block_height = block_size_high[bsize];
-  double sLL = 0;
-  double sLCb = 0;
-  double sLCr = 0;
-  double luma, cb, cr;
+  // We don't compute alpha anymore
+  // double sLL = 0;
+  // double sLCb = 0;
+  // double sLCr = 0;
+  int cb, cr;
+  int cb_pred, cr_pred;
+  // Predictions using negative alpha
+  int cb_pred_m, cr_pred_m;
+  double luma;
+  int min_dist = 0;
 
   // Load CfL Prediction over the entire block
   const double y_avg =
       cfl_load(cfl, tmp_pix, MAX_SB_SIZE, 0, 0, block_width, block_height);
 
+  const int dc_pred_cb = (uint8_t)(cfl->dc_pred[0] + 0.5);
+  const int dc_pred_cr = (uint8_t)(cfl->dc_pred[1] + 0.5);
+
   // Compute least squares parameter of the entire block
   for (int j = 0; j < block_height; j++) {
     for (int i = 0; i < block_width; i++) {
-      cb = src_cb[src_stride_cb * j + i] - cfl->dc_pred[0];
-      cr = src_cr[src_stride_cr * j + i] - cfl->dc_pred[1];
+      cb = src_cb[src_stride_cb * j + i] - dc_pred_cb;
+      cr = src_cr[src_stride_cr * j + i] - dc_pred_cr;
       luma = tmp_pix[MAX_SB_SIZE * j + i] - y_avg;
-      sLL += luma * luma;
-      sLCb += luma * cb;
-      sLCr += luma * cr;
+      // IMPORTANT: FIRST CODE IS ASSUMED TO BE (0,0)
+      min_dist += sqr(cb) + sqr(cr);
+      // sLL += luma * luma;
+      // sLCb += luma * cb;
+      // sLCr += luma * cr;
     }
   }
-
-  const double alpha_cb = (sLL) ? sLCb / sLL : 0;
-  const double alpha_cr = (sLL) ? sLCr / sLL : 0;
-
-  alphas[0] = alpha_cb;
-  alphas[1] = alpha_cr;
-
-  const double a_alpha_cb = fabs(alpha_cb);
-  const double a_alpha_cr = fabs(alpha_cr);
-
+  // First code as current best
+  signs[0] = 1;
+  signs[1] = 1;
+  alphas[0] = 0;
+  alphas[1] = 0;
   // Index of the closest alpha Cb nd Cr pair.
   int ind = 0;
+
+  // We don't compute alpha anymore
+  // const double alpha_cb = (sLL) ? sLCb / sLL : 0;
+  // const double alpha_cr = (sLL) ? sLCr / sLL : 0;
+  // alphas[0] = alpha_cb;
+  // alphas[1] = alpha_cr;
+  // const double a_alpha_cb = fabs(alpha_cb);
+  // const double a_alpha_cr = fabs(alpha_cr);
+
   // Euclidean distance, sqrt is not needed, because we only care for min.
-  double min_dist = pow(cfl_alpha_codes[0][0] - a_alpha_cb, 2) +
-                    pow(cfl_alpha_codes[0][1] - a_alpha_cr, 2);
-  for (int i = 1; i < CFL_MAX_ALPHA_IND; i++) {
-    double dist = pow(cfl_alpha_codes[i][0] - a_alpha_cb, 2) +
-                  pow(cfl_alpha_codes[i][1] - a_alpha_cr, 2);
+  // double min_dist = pow(cfl_alpha_codes[0][0] - a_alpha_cb, 2) +
+  //                  pow(cfl_alpha_codes[0][1] - a_alpha_cr, 2);
+  int dist, dist1, dist2, dist3;
+  for (int c = 1; c < CFL_MAX_ALPHA_IND; c++) {
+    dist = 0;
+    dist1 = 0;
+    dist2 = 0;
+    dist3 = 0;
+    for (int j = 0; j < block_height; j++) {
+      for (int i = 0; i < block_width; i++) {
+        // TODO(ltrudeau) lookup instead of subtracting everytime?
+        cb = src_cb[src_stride_cb * j + i];
+        cr = src_cr[src_stride_cr * j + i];
+        luma = tmp_pix[MAX_SB_SIZE * j + i] - y_avg;
+        // TODO(ltrudeau) luma + cfl->dc_pred + 0.5 can all be cached
+        cb_pred =
+            (uint8_t)(cfl_alpha_codes[c][0] * luma + cfl->dc_pred[0] + 0.5);
+        cr_pred =
+            (uint8_t)(cfl_alpha_codes[c][1] * luma + cfl->dc_pred[1] + 0.5);
+        cb_pred_m =
+            (uint8_t)(-cfl_alpha_codes[c][0] * luma + cfl->dc_pred[0] + 0.5);
+        cr_pred_m =
+            (uint8_t)(-cfl_alpha_codes[c][1] * luma + cfl->dc_pred[1] + 0.5);
+
+        dist += sqr(cb - cb_pred) + sqr(cr - cr_pred);
+        dist1 += sqr(cb - cb_pred) + sqr(cr - cr_pred_m);
+        dist2 += sqr(cb - cb_pred_m) + sqr(cr - cr_pred);
+        dist3 += sqr(cb - cb_pred_m) + sqr(cr - cr_pred_m);
+      }
+    }
     if (dist < min_dist) {
       min_dist = dist;
-      ind = i;
+      ind = c;
+      signs[0] = 1;
+      signs[1] = 1;
+      alphas[0] = cfl_alpha_codes[c][0];
+      alphas[1] = cfl_alpha_codes[c][1];
+    }
+    if (dist1 < min_dist) {
+      min_dist = dist1;
+      ind = c;
+      signs[0] = 1;
+      signs[1] = 0;
+      alphas[0] = cfl_alpha_codes[c][0];
+      alphas[1] = -cfl_alpha_codes[c][1];
+    }
+    if (dist2 < min_dist) {
+      min_dist = dist2;
+      ind = c;
+      signs[0] = 0;
+      signs[1] = 1;
+      alphas[0] = -cfl_alpha_codes[c][0];
+      alphas[1] = cfl_alpha_codes[c][1];
+    }
+    if (dist3 < min_dist) {
+      min_dist = dist3;
+      ind = c;
+      signs[0] = 0;
+      signs[1] = 0;
+      alphas[0] = -cfl_alpha_codes[c][0];
+      alphas[1] = -cfl_alpha_codes[c][1];
     }
   }
-
-  // sign == 1 implies positive, sign == 0 implies negative
-  // (0 is always positive)
-  signs[0] = (ind) ? alpha_cb == a_alpha_cb : 1;
-  signs[1] = (ind) ? alpha_cr == a_alpha_cr : 1;
 
   return ind;
 }
