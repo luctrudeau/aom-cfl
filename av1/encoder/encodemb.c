@@ -1049,6 +1049,7 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
   int cb_dist_m, cr_dist_m;
   double luma;
   double min_dist = 0;
+  int min_dist_i = 0;
 
   // Load CfL Prediction over the entire block
   const double y_avg =
@@ -1061,12 +1062,13 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
   for (int j = 0; j < block_height; j++) {
     for (int i = 0; i < block_width; i++) {
       // IMPORTANT: We assume that the first code is 0,0
-      min_dist += sqr((int)(src_cb[src_stride_cb * j + i] - dc_pred_cb)) +
-                  sqr((int)(src_cr[src_stride_cr * j + i] - dc_pred_cr));
+      // Probably faster to work with ints inside this loop
+      min_dist_i += sqr((int)(src_cb[src_stride_cb * j + i] - dc_pred_cb)) +
+                    sqr((int)(src_cr[src_stride_cr * j + i] - dc_pred_cr));
     }
   }
-  min_dist = RDCOST_DBL(x->rdmult, x->rddiv, *cfl_cost >> 4, min_dist);
-  // First code as current best
+  min_dist = RDCOST_DBL(x->rdmult, x->rddiv, *cfl_cost >> 4, min_dist_i);
+  // 0,0 code as current best
   signs[0] = 1;
   signs[1] = 1;
   alphas[0] = 0;
@@ -1074,52 +1076,42 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
   // Index of the closest alpha Cb nd Cr pair.
   int ind = 0;
 
-  // We don't compute alpha anymore
-  // const double alpha_cb = (sLL) ? sLCb / sLL : 0;
-  // const double alpha_cr = (sLL) ? sLCr / sLL : 0;
-  // alphas[0] = alpha_cb;
-  // alphas[1] = alpha_cr;
-  // const double a_alpha_cb = fabs(alpha_cb);
-  // const double a_alpha_cr = fabs(alpha_cr);
-
-  // Euclidean distance, sqrt is not needed, because we only care for min.
-  // double min_dist = pow(cfl_alpha_codes[0][0] - a_alpha_cb, 2) +
-  //                  pow(cfl_alpha_codes[0][1] - a_alpha_cr, 2);
-  double dist, dist1, dist2, dist3;
-  int worst = 0;
+  int dist_i[4];
+  double dist;
   for (int c = 1; c < CFL_MAX_ALPHA_IND; c++) {
-    worst++;
-    dist = 0;
-    dist1 = 0;
-    dist2 = 0;
-    dist3 = 0;
+    dist_i[0] = 0;
+    dist_i[1] = 0;
+    dist_i[2] = 0;
+    dist_i[3] = 0;
     for (int j = 0; j < block_height; j++) {
       for (int i = 0; i < block_width; i++) {
         cb = src_cb[src_stride_cb * j + i];
         cr = src_cr[src_stride_cr * j + i];
         luma = tmp_pix[MAX_SB_SIZE * j + i] - y_avg;
 
-        cb_pred = (uint8_t)(cfl_alpha_codes[c][0] * luma + dc_pred_cb);
-        cr_pred = (uint8_t)(cfl_alpha_codes[c][1] * luma + dc_pred_cr);
-        cb_pred_m = (uint8_t)(-cfl_alpha_codes[c][0] * luma + dc_pred_cb);
-        cr_pred_m = (uint8_t)(-cfl_alpha_codes[c][1] * luma + dc_pred_cr);
-
-        //
+        cb_pred = (int)(cfl_alpha_codes[c][0] * luma + dc_pred_cb);
+        cr_pred = (int)(cfl_alpha_codes[c][1] * luma + dc_pred_cr);
         cb_dist = sqr(cb - cb_pred);
-        cb_dist_m = sqr(cb - cb_pred_m);
         cr_dist = sqr(cr - cr_pred);
-        cr_dist_m = sqr(cr - cr_pred_m);
+        dist_i[0] += cb_dist + cr_dist;
 
-        dist += cb_dist + cr_dist;
-        dist1 += cb_dist + cr_dist_m;
-        dist2 += cb_dist_m + cr_dist;
-        dist3 += cb_dist_m + cr_dist_m;
+        // Probably faster not to compute -0
+        if (cfl_alpha_codes[c][0]) {
+          cb_pred_m = (int)(-cfl_alpha_codes[c][0] * luma + dc_pred_cb);
+          cb_dist_m = sqr(cb - cb_pred_m);
+          dist_i[2] += cb_dist_m + cr_dist;
+        }
+        if (cfl_alpha_codes[c][1]) {
+          cr_pred_m = (int)(-cfl_alpha_codes[c][1] * luma + dc_pred_cr);
+          cr_dist_m = sqr(cr - cr_pred_m);
+          dist_i[1] += cb_dist + cr_dist_m;
+          if (cfl_alpha_codes[c][0]) {
+            dist_i[3] += cb_dist_m + cr_dist_m;
+          }
+        }
       }
     }
-    dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4, dist);
-    dist1 = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4, dist1);
-    dist2 = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4, dist2);
-    dist3 = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4, dist3);
+    dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4, dist_i[0]);
     if (dist < min_dist) {
       min_dist = dist;
       ind = c;
@@ -1127,38 +1119,46 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
       signs[1] = 1;
       alphas[0] = cfl_alpha_codes[c][0];
       alphas[1] = cfl_alpha_codes[c][1];
-      worst = 0;
     }
-    if (dist1 < min_dist) {
-      min_dist = dist1;
-      ind = c;
-      signs[0] = 1;
-      signs[1] = 0;
-      alphas[0] = cfl_alpha_codes[c][0];
-      alphas[1] = -cfl_alpha_codes[c][1];
-      worst = 0;
+    if (cfl_alpha_codes[c][0]) {
+      dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4, dist_i[2]);
+      if (dist < min_dist) {
+        min_dist = dist;
+        ind = c;
+        signs[0] = 0;
+        signs[1] = 1;
+        alphas[0] = -cfl_alpha_codes[c][0];
+        alphas[1] = cfl_alpha_codes[c][1];
+      }
     }
-    if (dist2 < min_dist) {
-      min_dist = dist2;
-      ind = c;
-      signs[0] = 0;
-      signs[1] = 1;
-      alphas[0] = -cfl_alpha_codes[c][0];
-      alphas[1] = cfl_alpha_codes[c][1];
-      worst = 0;
+    if (cfl_alpha_codes[c][1]) {
+      dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4, dist_i[1]);
+      if (dist < min_dist) {
+        min_dist = dist;
+        ind = c;
+        signs[0] = 1;
+        signs[1] = 0;
+        alphas[0] = cfl_alpha_codes[c][0];
+        alphas[1] = -cfl_alpha_codes[c][1];
+      }
+      if (cfl_alpha_codes[c][0]) {
+        dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4, dist);
+        if (dist < min_dist) {
+          min_dist = dist;
+          ind = c;
+          signs[0] = 0;
+          signs[1] = 0;
+          alphas[0] = -cfl_alpha_codes[c][0];
+          alphas[1] = -cfl_alpha_codes[c][1];
+        }
+      }
     }
-    if (dist3 < min_dist) {
-      min_dist = dist3;
-      ind = c;
-      signs[0] = 0;
-      signs[1] = 0;
-      alphas[0] = -cfl_alpha_codes[c][0];
-      alphas[1] = -cfl_alpha_codes[c][1];
-      worst = 0;
-    }
-    if (worst == 8) {
-      break;
-    }
+
+    // TODO(ltrudeau) tune this based on speed settings
+    // TODO(ltrudeau) this does not work in 2D (think harder)
+    // if (worst == 8) {
+    //  break;
+    //}
   }
   return ind;
 }
