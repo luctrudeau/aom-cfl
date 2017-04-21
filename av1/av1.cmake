@@ -310,6 +310,13 @@ if (CONFIG_PALETTE)
       "${AOM_ROOT}/av1/encoder/palette.h")
 endif ()
 
+
+if (CONFIG_CFL)
+    set(AOM_AV1_ENCODER_SOURCES
+        ${AOM_AV1_ENCODER_SOURCES}
+        "${AOM_ROOT}/av1/encoder/generic_encoder.c")
+endif ()
+
 if (CONFIG_PVQ)
   set(AOM_AV1_COMMON_SOURCES
       ${AOM_AV1_COMMON_SOURCES}

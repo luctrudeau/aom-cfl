@@ -20,6 +20,7 @@
 #include "aom_dsp/bitwriter.h"
 #include "av1/common/generic_code.h"
 #include "av1/common/odintrin.h"
+#if CONFIG_PVQ
 #include "pvq_encoder.h"
 
 /** Encodes a value from 0 to N-1 (with N up to 16) based on a cdf and adapts
@@ -137,6 +138,7 @@ void generic_encode(aom_writer *w, generic_encoder *model, int x, int max,
    "enc: %d %d %d %d %d %x", *ex_q16, x, shift, id, xs, enc->rng));
 }
 
+#endif
 /** Estimates the cost of encoding a value with generic_encode().
  *
  * @param [in,out] model generic probability model

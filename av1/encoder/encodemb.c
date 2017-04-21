@@ -36,6 +36,9 @@
 #include "av1/encoder/pvq_encoder.h"
 #endif
 
+#if CONFIG_CFL
+#include "av1/common/generic_code.h"
+#endif
 // Check if one needs to use c version subtraction.
 static int check_subtract_block_size(int w, int h) { return w < 4 || h < 4; }
 
@@ -1019,13 +1022,14 @@ static uint8_t tmp_pix[MAX_SB_SQUARE];
 
 int sqr(int x) { return x * x; }
 
-static const int cfl_cost[] = {
+/*static const int cfl_cost[] = {
   383,  3151, 2727, 3791, 3331, 3025, 3426, 3923,
   3584, 4011, 4026, 3598, 3986, 4506, 4532, 4521
-};
+};*/
 
-int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
-                          BLOCK_SIZE bsize, int signs[2], double alphas[2]) {
+int cfl_compute_alpha_ind(MACROBLOCK *const x, const CFL_CTX *const cfl,
+                          BLOCK_SIZE bsize, int signs[2], double alphas[2],
+                          int cfl_cost[CFL_ALPHA_CDF_SIZE]) {
   const struct macroblock_plane *const p_cb = &x->plane[1];
   const struct macroblock_plane *const p_cr = &x->plane[2];
 
@@ -1199,15 +1203,30 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
 #if CONFIG_CFL
   if (plane != 0 && mbmi->uv_mode == DC_PRED) {
     CFL_CTX *const cfl = xd->cfl;
-    // Compute the block-level DC_PRED and the value of alpha for both chromatic
+    // Compute the block-level DC_PRED and the value of alpha for both
+    // chromatic
     // planes prior to processing the first chromatic plane.
     if (blk_col == 0 && blk_row == 0 && plane == 1) {
       cfl_dc_pred(xd, cfl, plane_bsize, tx_size);
 
+// TODO(ltrudeau) do this somewhere else
+#if CONFIG_EC_ADAPT
+      FRAME_CONTEXT *ec_ctx = xd->tile_ctx;
+#else
+      FRAME_CONTEXT *ec_ctx = cm->fc;
+#endif
+      int cfl_costs_live[CFL_ALPHA_CDF_SIZE];
+      for (int c = 0; c < CFL_MAX_ALPHA_IND; c++) {
+        cfl_costs_live[c] = (int)(od_encode_cdf_cost(c, ec_ctx->cfl_alpha_cdf,
+                                                     CFL_ALPHA_CDF_SIZE) *
+                                  (1 << AV1_PROB_COST_SHIFT));
+      }
+
       xd->cfl->dc_pred_size = plane_bsize;
       // Compute alpha on first block but do it over the entire block
-      mbmi->cfl_alpha_ind = cfl_compute_alpha_ind(
-          x, cfl, plane_bsize, mbmi->cfl_alpha_signs, mbmi->cfl_alphas);
+      mbmi->cfl_alpha_ind =
+          cfl_compute_alpha_ind(x, cfl, plane_bsize, mbmi->cfl_alpha_signs,
+                                mbmi->cfl_alphas, cfl_costs_live);
     }
 
     if (plane == 2 && blk_row == 0 && blk_col == 0) {

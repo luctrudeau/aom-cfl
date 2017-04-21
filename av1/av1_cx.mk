@@ -130,6 +130,10 @@ ifneq ($(findstring yes,$(CONFIG_XIPHRC)$(CONFIG_PVQ)),)
 AV1_CX_SRCS-yes += encoder/encint.h
 endif
 
+ifeq ($(CONFIG_CFL),yes)
+  AV1_CX_SRCS-yes += encoder/generic_encoder.c
+endif
+
 AV1_CX_SRCS-$(HAVE_SSE2) += encoder/x86/av1_quantize_sse2.c
 AV1_CX_SRCS-$(HAVE_SSE2) += encoder/x86/temporal_filter_apply_sse2.asm
 ifeq ($(CONFIG_AOM_HIGHBITDEPTH),yes)
