@@ -2231,9 +2231,9 @@ static const aom_cdf_prob default_cfl_alpha_cdf[CFL_ALPHA_CDF_SIZE] = {
   7703,  11687, 17187, 19857, 21454, 24075, 25937, 26753, 27952,
   29145, 29645, 30628, 31386, 31736, 32268, 32768
   */
-  // CDF after 2 iterations of RD-optimal alpha choice
-  14789, 17179, 22371, 23421, 24320, 26516, 27960, 28346, 29500,
-  30078, 30398, 31425, 32027, 32214, 32495, 32768
+  // CDF after 3 iterations of RD-optimal alpha choice
+  15110, 17171, 22481, 23387, 24253, 26513, 27958, 28351, 29497,
+  30044, 30374, 31439, 32049, 32233, 32507, 32768
   // TODO(ltrudeau) Update these probabilities (bug fixes might have impacts)
   /*
   3132,  11196, 16816, 20140, 22739, 25861, 27224, 28622, 30001,

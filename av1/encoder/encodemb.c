@@ -1017,8 +1017,8 @@ void av1_encode_sb_supertx(AV1_COMMON *cm, MACROBLOCK *x, BLOCK_SIZE bsize) {
 // alpha index.
 static uint8_t tmp_pix[MAX_SB_SQUARE];
 static const int cfl_cost[] = {
-  588,  2446, 2385, 3054, 3168, 3021, 3330, 3793, 3495, 4006, 3932,
-  3582, 3976, 4331, 4538, 4560
+  572,  2555, 2368, 3162, 3196, 2999, 3329, 3781, 3501, 4047, 3910,
+  3555, 3966, 4339, 4557, 4595
 };
 
 int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
