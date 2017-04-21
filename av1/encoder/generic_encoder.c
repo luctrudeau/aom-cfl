@@ -138,7 +138,6 @@ void generic_encode(aom_writer *w, generic_encoder *model, int x, int max,
    "enc: %d %d %d %d %d %x", *ex_q16, x, shift, id, xs, enc->rng));
 }
 
-#endif
 /** Estimates the cost of encoding a value with generic_encode().
  *
  * @param [in,out] model generic probability model
@@ -182,6 +181,7 @@ double generic_encode_cost(generic_encoder *model, int x, int max,
      cdf[OD_MINI(ms, 15)]);
   }
 }
+#endif
 
 /*Estimates the cost of encoding a value with a given CDF.*/
 double od_encode_cdf_cost(int val, uint16_t *cdf, int n) {

@@ -312,9 +312,14 @@ endif ()
 
 
 if (CONFIG_CFL)
-    set(AOM_AV1_ENCODER_SOURCES
-        ${AOM_AV1_ENCODER_SOURCES}
-        "${AOM_ROOT}/av1/encoder/generic_encoder.c")
+  set(AOM_AV1_COMMON_SOURCES
+    ${AOM_AV1_COMMON_SOURCES}
+    "${AOM_ROOT}/av1/common/generic_code.c"
+    "${AOM_ROOT}/av1/common/generic_code.h")
+
+  set(AOM_AV1_ENCODER_SOURCES
+    ${AOM_AV1_ENCODER_SOURCES}
+    "${AOM_ROOT}/av1/encoder/generic_encoder.c")
 endif ()
 
 if (CONFIG_PVQ)
