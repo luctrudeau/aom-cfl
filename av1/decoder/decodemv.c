@@ -160,7 +160,14 @@ static PREDICTION_MODE read_intra_mode_uv(AV1_COMMON *cm, MACROBLOCKD *xd,
 }
 
 #if CONFIG_CFL
-static int read_cfl_alphas(AV1_COMMON *cm, aom_reader *r, int signs[2]) {
+static int read_cfl_alphas(
+#if CONFIG_EC_ADAPT
+    MACROBLOCKD *xd,
+#elif CONFIG_EC_MULTISYMBOL
+    AV1_COMMON *cm,
+#endif
+    aom_reader *r, int signs[2]) {
+
 #if CONFIG_EC_ADAPT
   FRAME_CONTEXT *ec_ctx = xd->tile_ctx;
 #elif CONFIG_EC_MULTISYMBOL
@@ -998,7 +1005,13 @@ static void read_intra_frame_mode_info(AV1_COMMON *const cm,
       mbmi->cfl_alpha_signs[0] = 1;
       mbmi->cfl_alpha_signs[1] = 1;
     } else {
-      mbmi->cfl_alpha_ind = read_cfl_alphas(cm, r, mbmi->cfl_alpha_signs);
+      mbmi->cfl_alpha_ind = read_cfl_alphas(
+#if CONFIG_EC_ADAPT
+          xd,
+#elif CONFIG_EC_MULTISYMBOL
+          cm,
+#endif
+          r, mbmi->cfl_alpha_signs);
     }
   }
 #endif
