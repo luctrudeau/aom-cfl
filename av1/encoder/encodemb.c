@@ -1037,19 +1037,13 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
 
   const int block_width = block_size_wide[bsize];
   const int block_height = block_size_high[bsize];
-  // We don't compute alpha anymore
-  // double sLL = 0;
-  // double sLCb = 0;
-  // double sLCr = 0;
+
   int cb, cr;
-  int cb_pred, cr_pred;
   int cb_dist, cr_dist;
-  // Predictions using negative alpha
-  int cb_pred_m, cr_pred_m;
-  int cb_dist_m, cr_dist_m;
-  double luma;
+  int cb_dist_neg, cr_dist_neg;
+  double luma, scaled_luma;
   double min_dist = 0;
-  int min_dist_i = 0;
+  int dist_i = 0;
 
   // Load CfL Prediction over the entire block
   const double y_avg =
@@ -1063,11 +1057,11 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
     for (int i = 0; i < block_width; i++) {
       // IMPORTANT: We assume that the first code is 0,0
       // Probably faster to work with ints inside this loop
-      min_dist_i += sqr((int)(src_cb[src_stride_cb * j + i] - dc_pred_cb)) +
-                    sqr((int)(src_cr[src_stride_cr * j + i] - dc_pred_cr));
+      dist_i += sqr((int)(src_cb[src_stride_cb * j + i] - dc_pred_cb)) +
+                sqr((int)(src_cr[src_stride_cr * j + i] - dc_pred_cr));
     }
   }
-  min_dist = RDCOST_DBL(x->rdmult, x->rddiv, *cfl_cost >> 4, min_dist_i);
+  min_dist = RDCOST_DBL(x->rdmult, x->rddiv, *cfl_cost >> 4, dist_i);
   // 0,0 code as current best
   signs[0] = 1;
   signs[1] = 1;
@@ -1076,42 +1070,37 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
   // Index of the closest alpha Cb nd Cr pair.
   int ind = 0;
 
-  int dist_i[4];
   double dist;
   for (int c = 1; c < CFL_MAX_ALPHA_IND; c++) {
-    dist_i[0] = 0;
-    dist_i[1] = 0;
-    dist_i[2] = 0;
-    dist_i[3] = 0;
+    cb_dist = 0;
+    cr_dist = 0;
+    cb_dist_neg = 0;
+    cr_dist_neg = 0;
     for (int j = 0; j < block_height; j++) {
       for (int i = 0; i < block_width; i++) {
         cb = src_cb[src_stride_cb * j + i];
         cr = src_cr[src_stride_cr * j + i];
         luma = tmp_pix[MAX_SB_SIZE * j + i] - y_avg;
 
-        cb_pred = (int)(cfl_alpha_codes[c][0] * luma + dc_pred_cb);
-        cr_pred = (int)(cfl_alpha_codes[c][1] * luma + dc_pred_cr);
-        cb_dist = sqr(cb - cb_pred);
-        cr_dist = sqr(cr - cr_pred);
-        dist_i[0] += cb_dist + cr_dist;
-
         // Probably faster not to compute -0
-        if (cfl_alpha_codes[c][0]) {
-          cb_pred_m = (int)(-cfl_alpha_codes[c][0] * luma + dc_pred_cb);
-          cb_dist_m = sqr(cb - cb_pred_m);
-          dist_i[2] += cb_dist_m + cr_dist;
+        if (cfl_alpha_codes[c][0] > 0.) {
+          scaled_luma = cfl_alpha_codes[c][0] * luma;
+          cb_dist += sqr(cb - ((int)(scaled_luma + dc_pred_cb)));
+          cb_dist_neg += sqr(cb + ((int)(scaled_luma - dc_pred_cb)));
+        } else {
+          cb_dist += sqr(cb - ((int)dc_pred_cb));
         }
-        if (cfl_alpha_codes[c][1]) {
-          cr_pred_m = (int)(-cfl_alpha_codes[c][1] * luma + dc_pred_cr);
-          cr_dist_m = sqr(cr - cr_pred_m);
-          dist_i[1] += cb_dist + cr_dist_m;
-          if (cfl_alpha_codes[c][0]) {
-            dist_i[3] += cb_dist_m + cr_dist_m;
-          }
+
+        if (cfl_alpha_codes[c][1] > 0.) {
+          scaled_luma = cfl_alpha_codes[c][1] * luma;
+          cr_dist += sqr(cr - ((int)(scaled_luma + dc_pred_cr)));
+          cr_dist_neg += sqr(cr + ((int)(scaled_luma - dc_pred_cr)));
+        } else {
+          cr_dist += sqr(cr - ((int)dc_pred_cr));
         }
       }
     }
-    dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4, dist_i[0]);
+    dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4, cb_dist + cr_dist);
     if (dist < min_dist) {
       min_dist = dist;
       ind = c;
@@ -1120,8 +1109,9 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
       alphas[0] = cfl_alpha_codes[c][0];
       alphas[1] = cfl_alpha_codes[c][1];
     }
-    if (cfl_alpha_codes[c][0]) {
-      dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4, dist_i[2]);
+    if (cfl_alpha_codes[c][0] > 0.) {
+      dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4,
+                        cb_dist_neg + cr_dist);
       if (dist < min_dist) {
         min_dist = dist;
         ind = c;
@@ -1131,8 +1121,9 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
         alphas[1] = cfl_alpha_codes[c][1];
       }
     }
-    if (cfl_alpha_codes[c][1]) {
-      dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4, dist_i[1]);
+    if (cfl_alpha_codes[c][1] > 0.) {
+      dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4,
+                        cb_dist + cr_dist_neg);
       if (dist < min_dist) {
         min_dist = dist;
         ind = c;
@@ -1141,8 +1132,9 @@ int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
         alphas[0] = cfl_alpha_codes[c][0];
         alphas[1] = -cfl_alpha_codes[c][1];
       }
-      if (cfl_alpha_codes[c][0]) {
-        dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4, dist);
+      if (cfl_alpha_codes[c][0] > 0.) {
+        dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4,
+                          cb_dist_neg + cr_dist_neg);
         if (dist < min_dist) {
           min_dist = dist;
           ind = c;
