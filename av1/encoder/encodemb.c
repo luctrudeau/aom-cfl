@@ -1029,7 +1029,7 @@ int sqr(int x) { return x * x; }
 
 int cfl_compute_alpha_ind(MACROBLOCK *const x, const CFL_CTX *const cfl,
                           BLOCK_SIZE bsize, int signs[2], double alphas[2],
-                          int cfl_cost[CFL_ALPHA_CDF_SIZE]) {
+                          double cfl_cost[CFL_ALPHA_CDF_SIZE]) {
   const struct macroblock_plane *const p_cb = &x->plane[1];
   const struct macroblock_plane *const p_cr = &x->plane[2];
 
@@ -1065,7 +1065,7 @@ int cfl_compute_alpha_ind(MACROBLOCK *const x, const CFL_CTX *const cfl,
                 sqr((int)(src_cr[src_stride_cr * j + i] - dc_pred_cr));
     }
   }
-  min_dist = RDCOST_DBL(x->rdmult, x->rddiv, *cfl_cost >> 4, dist_i);
+  min_dist = RDCOST_DBL(x->rdmult, x->rddiv, *cfl_cost, dist_i);
   // 0,0 code as current best
   signs[0] = 1;
   signs[1] = 1;
@@ -1104,7 +1104,7 @@ int cfl_compute_alpha_ind(MACROBLOCK *const x, const CFL_CTX *const cfl,
         }
       }
     }
-    dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4, cb_dist + cr_dist);
+    dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c], cb_dist + cr_dist);
     if (dist < min_dist) {
       min_dist = dist;
       ind = c;
@@ -1114,8 +1114,8 @@ int cfl_compute_alpha_ind(MACROBLOCK *const x, const CFL_CTX *const cfl,
       alphas[1] = cfl_alpha_codes[c][1];
     }
     if (cfl_alpha_codes[c][0] > 0.) {
-      dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4,
-                        cb_dist_neg + cr_dist);
+      dist =
+          RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c], cb_dist_neg + cr_dist);
       if (dist < min_dist) {
         min_dist = dist;
         ind = c;
@@ -1126,8 +1126,8 @@ int cfl_compute_alpha_ind(MACROBLOCK *const x, const CFL_CTX *const cfl,
       }
     }
     if (cfl_alpha_codes[c][1] > 0.) {
-      dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4,
-                        cb_dist + cr_dist_neg);
+      dist =
+          RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c], cb_dist + cr_dist_neg);
       if (dist < min_dist) {
         min_dist = dist;
         ind = c;
@@ -1137,7 +1137,7 @@ int cfl_compute_alpha_ind(MACROBLOCK *const x, const CFL_CTX *const cfl,
         alphas[1] = -cfl_alpha_codes[c][1];
       }
       if (cfl_alpha_codes[c][0] > 0.) {
-        dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c] >> 4,
+        dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c],
                           cb_dist_neg + cr_dist_neg);
         if (dist < min_dist) {
           min_dist = dist;
@@ -1215,11 +1215,15 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
 #else
       FRAME_CONTEXT *ec_ctx = cm->fc;
 #endif
-      int cfl_costs_live[CFL_ALPHA_CDF_SIZE];
+      double cfl_costs_live[CFL_ALPHA_CDF_SIZE];
       for (int c = 0; c < CFL_MAX_ALPHA_IND; c++) {
-        cfl_costs_live[c] = (int)(od_encode_cdf_cost(c, ec_ctx->cfl_alpha_cdf,
-                                                     CFL_ALPHA_CDF_SIZE) *
-                                  (1 << AV1_PROB_COST_SHIFT));
+        // TODO(ltrudeau) add sign bit cost)
+        int sign_bit_cost = (cfl_alpha_codes[c][0] > 0. ? 1 : 0) +
+                            (cfl_alpha_codes[c][1] > 0. ? 1 : 0);
+        double cost =
+            od_encode_cdf_cost(c, ec_ctx->cfl_alpha_cdf, CFL_ALPHA_CDF_SIZE) +
+            sign_bit_cost;
+        cfl_costs_live[c] = (cost + sign_bit_cost) * (1 << AV1_PROB_COST_SHIFT);
       }
 
       xd->cfl->dc_pred_size = plane_bsize;
