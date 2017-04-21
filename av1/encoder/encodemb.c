@@ -1020,8 +1020,8 @@ static uint8_t tmp_pix[MAX_SB_SQUARE];
 int sqr(int x) { return x * x; }
 
 static const int cfl_cost[] = {
-  406,  2940, 2636, 3608, 3331, 3086, 3418, 3940,
-  3572, 4074, 4002, 3607, 4009, 4442, 4560, 4581
+  387,  3093, 2705, 3752, 3338, 3050, 3421, 3931,
+  3578, 4042, 4015, 3601, 3989, 4482, 4537, 4534
 };
 
 int cfl_compute_alpha_ind(const MACROBLOCK *const x, const CFL_CTX *const cfl,
