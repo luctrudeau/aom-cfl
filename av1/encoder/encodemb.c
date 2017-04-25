@@ -1220,13 +1220,13 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
 #endif
       double cfl_costs_live[CFL_ALPHA_CDF_SIZE];
       for (int c = 0; c < CFL_MAX_ALPHA_IND; c++) {
-        // TODO(ltrudeau) add sign bit cost)
         int sign_bit_cost = (cfl_alpha_codes[c][0] > 0. ? 1 : 0) +
                             (cfl_alpha_codes[c][1] > 0. ? 1 : 0);
-        double cost =
-            od_encode_cdf_cost(c, ec_ctx->cfl_alpha_cdf, CFL_ALPHA_CDF_SIZE) +
-            sign_bit_cost;
-        cfl_costs_live[c] = (cost + sign_bit_cost) * (1 << AV1_PROB_COST_SHIFT);
+        int prob_den = ec_ctx->cfl_alpha_cdf[CFL_ALPHA_CDF_SIZE - 1];
+        int prob_num = ec_ctx->cfl_alpha_cdf[c];
+        if (c > 0) prob_num -= ec_ctx->cfl_alpha_cdf[c - 1];
+        cfl_costs_live[c] = av1_cost_zero(get_prob(prob_num, prob_den)) +
+                            av1_cost_literal(sign_bit_cost);
       }
 
       xd->cfl->dc_pred_size = plane_bsize;
