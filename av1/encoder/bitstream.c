@@ -1696,6 +1696,21 @@ static void pack_inter_mode_mvs(AV1_COMP *cpi, const MODE_INFO *mi,
     write_intra_uv_mode(ec_ctx, mbmi->uv_mode, mode, w);
 #endif  // CONFIG_CB4X4
 
+#if CONFIG_CFL
+    if (mbmi->uv_mode == DC_PRED) {
+      if (mbmi->skip) {
+        assert(mbmi->cfl_alpha_ind == 0);
+        assert(mbmi->cfl_alpha_signs[0] == 1);
+        assert(mbmi->cfl_alpha_signs[1] == 1);
+      } else {
+        write_cfl_alphas(ec_ctx, mbmi->cfl_alpha_ind, mbmi->cfl_alpha_signs, w);
+        // Instrumentation to get signaled alphas (not perfect, because of
+        // rollbacks, but does a good job)
+        // printf("%f, %f\n", mbmi->cfl_alphas[0], mbmi->cfl_alphas[1]);
+      }
+    }
+#endif
+
 #if CONFIG_EXT_INTRA
     write_intra_angle_info(xd, ec_ctx, w);
 #endif  // CONFIG_EXT_INTRA
