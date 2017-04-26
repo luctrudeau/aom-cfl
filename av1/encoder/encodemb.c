@@ -1027,6 +1027,42 @@ int sqr(int x) { return x * x; }
   3584, 4011, 4026, 3598, 3986, 4506, 4532, 4521
 };*/
 
+static int cfl_alpha_dist(
+  int *dist_neg_out,
+  const uint8_t *const src,
+  const int src_stride,
+  const int block_width,
+  const int block_height,
+  const double y_avg,
+  const double dc_pred_unbiased,
+  const double alpha) {
+
+  const double dc_pred = dc_pred_unbiased + 0.5;
+  int dist = 0;
+  int dist_neg = 0;
+
+  for (int j = 0; j < block_height; j++) {
+    for (int i = 0; i < block_width; i++) {
+      const double luma = tmp_pix[MAX_SB_SIZE * j + i] - y_avg;
+      const int uv = src[src_stride * j + i];
+
+      // Probably faster not to compute -0
+      if (alpha > 0.) {
+        const double scaled_luma = alpha * luma;
+        dist += sqr(uv - ((int)(scaled_luma + dc_pred)));
+        dist_neg += sqr(uv + ((int)(scaled_luma - dc_pred)));
+      } else {
+        dist += sqr(uv - ((int)dc_pred));
+        dist_neg = dist;
+      }
+    }
+  }
+
+  if (dist_neg_out) *dist_neg_out = dist_neg;
+
+  return dist;
+}
+
 int cfl_compute_alpha_ind(MACROBLOCK *const x, const CFL_CTX *const cfl,
                           BLOCK_SIZE bsize, int signs[2], double alphas[2],
                           double cfl_cost[CFL_ALPHA_CDF_SIZE]) {
@@ -1042,10 +1078,8 @@ int cfl_compute_alpha_ind(MACROBLOCK *const x, const CFL_CTX *const cfl,
   const int block_width = block_size_wide[bsize];
   const int block_height = block_size_high[bsize];
 
-  int cb, cr;
   int cb_dist, cr_dist;
   int cb_dist_neg, cr_dist_neg;
-  double luma, scaled_luma;
   double min_dist = 0;
   int dist_i = 0;
 
@@ -1053,18 +1087,15 @@ int cfl_compute_alpha_ind(MACROBLOCK *const x, const CFL_CTX *const cfl,
   const double y_avg =
       cfl_load(cfl, tmp_pix, MAX_SB_SIZE, 0, 0, block_width, block_height);
 
-  const double dc_pred_cb = cfl->dc_pred[0] + 0.5;
-  const double dc_pred_cr = cfl->dc_pred[1] + 0.5;
+  const double dc_pred_cb = cfl->dc_pred[0];
+  const double dc_pred_cr = cfl->dc_pred[1];
 
   // Compute least squares parameter of the entire block
-  for (int j = 0; j < block_height; j++) {
-    for (int i = 0; i < block_width; i++) {
-      // IMPORTANT: We assume that the first code is 0,0
-      // Probably faster to work with ints inside this loop
-      dist_i += sqr((int)(src_cb[src_stride_cb * j + i] - dc_pred_cb)) +
-                sqr((int)(src_cr[src_stride_cr * j + i] - dc_pred_cr));
-    }
-  }
+  // IMPORTANT: We assume that the first code is 0,0
+  dist_i = cfl_alpha_dist(NULL, src_cb, src_stride_cb, block_width, block_height,
+                          y_avg, dc_pred_cb, 0) +
+           cfl_alpha_dist(NULL, src_cr, src_stride_cr, block_width, block_height,
+                          y_avg, dc_pred_cr, 0);
   min_dist = RDCOST_DBL(x->rdmult, x->rddiv, *cfl_cost, dist_i << 4);
   // 0,0 code as current best
   signs[0] = 1;
@@ -1076,80 +1107,23 @@ int cfl_compute_alpha_ind(MACROBLOCK *const x, const CFL_CTX *const cfl,
 
   double dist;
   for (int c = 1; c < CFL_MAX_ALPHA_IND; c++) {
-    cb_dist = 0;
-    cr_dist = 0;
-    cb_dist_neg = 0;
-    cr_dist_neg = 0;
-    for (int j = 0; j < block_height; j++) {
-      for (int i = 0; i < block_width; i++) {
-        cb = src_cb[src_stride_cb * j + i];
-        cr = src_cr[src_stride_cr * j + i];
-        luma = tmp_pix[MAX_SB_SIZE * j + i] - y_avg;
-
-        // Probably faster not to compute -0
-        if (cfl_alpha_codes[c][0] > 0.) {
-          scaled_luma = cfl_alpha_codes[c][0] * luma;
-          cb_dist += sqr(cb - ((int)(scaled_luma + dc_pred_cb)));
-          cb_dist_neg += sqr(cb + ((int)(scaled_luma - dc_pred_cb)));
-        } else {
-          cb_dist += sqr(cb - ((int)dc_pred_cb));
-        }
-
-        if (cfl_alpha_codes[c][1] > 0.) {
-          scaled_luma = cfl_alpha_codes[c][1] * luma;
-          cr_dist += sqr(cr - ((int)(scaled_luma + dc_pred_cr)));
-          cr_dist_neg += sqr(cr + ((int)(scaled_luma - dc_pred_cr)));
-        } else {
-          cr_dist += sqr(cr - ((int)dc_pred_cr));
-        }
-      }
-    }
-    dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c],
-                      (cb_dist + cr_dist) << 4);
-    if (dist < min_dist) {
-      min_dist = dist;
-      ind = c;
-      signs[0] = 1;
-      signs[1] = 1;
-      alphas[0] = cfl_alpha_codes[c][0];
-      alphas[1] = cfl_alpha_codes[c][1];
-    }
-    if (cfl_alpha_codes[c][0] > 0.) {
-      dist =
-          RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c],
-                     (cb_dist_neg + cr_dist) << 4);
+    cb_dist = cfl_alpha_dist(&cb_dist_neg, src_cb, src_stride_cb, block_width,
+                             block_height, y_avg, dc_pred_cb,
+                             cfl_alpha_codes[c][0]);
+    cr_dist = cfl_alpha_dist(&cr_dist_neg, src_cr, src_stride_cr, block_width,
+                             block_height, y_avg, dc_pred_cr,
+                             cfl_alpha_codes[c][1]);
+    for (int quad = 0; quad < 4; quad++) {
+      dist_i = (quad & 1 ? cb_dist : cb_dist_neg) +
+               (quad & 2 ? cr_dist : cr_dist_neg);
+      dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c], dist_i << 4);
       if (dist < min_dist) {
         min_dist = dist;
         ind = c;
-        signs[0] = 0;
-        signs[1] = 1;
-        alphas[0] = -cfl_alpha_codes[c][0];
-        alphas[1] = cfl_alpha_codes[c][1];
-      }
-    }
-    if (cfl_alpha_codes[c][1] > 0.) {
-      dist =
-          RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c],
-                     (cb_dist + cr_dist_neg) << 4);
-      if (dist < min_dist) {
-        min_dist = dist;
-        ind = c;
-        signs[0] = 1;
-        signs[1] = 0;
-        alphas[0] = cfl_alpha_codes[c][0];
-        alphas[1] = -cfl_alpha_codes[c][1];
-      }
-      if (cfl_alpha_codes[c][0] > 0.) {
-        dist = RDCOST_DBL(x->rdmult, x->rddiv, cfl_cost[c],
-                          (cb_dist_neg + cr_dist_neg) << 4);
-        if (dist < min_dist) {
-          min_dist = dist;
-          ind = c;
-          signs[0] = 0;
-          signs[1] = 0;
-          alphas[0] = -cfl_alpha_codes[c][0];
-          alphas[1] = -cfl_alpha_codes[c][1];
-        }
+        signs[0] = quad & 1;
+        signs[1] = (quad & 2) >> 1;
+        alphas[0] = signs[0] ? cfl_alpha_codes[c][0] : -cfl_alpha_codes[c][0];
+        alphas[1] = signs[1] ? cfl_alpha_codes[c][1] : -cfl_alpha_codes[c][1];
       }
     }
 
