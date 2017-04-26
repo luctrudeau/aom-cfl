@@ -2257,8 +2257,13 @@ static const aom_cdf_prob default_cfl_alpha_cdf[CFL_ALPHA_CDF_SIZE] = {
   30111, 31050, 31211, 31562, 32638, 32755, 32768
   */
   // CDF after 6 iterations of RD-optimal alpha choice
+  /*
   19500, 20420, 23688, 24075, 24797, 26979, 28246, 28570, 29594,
   30169, 30450, 31455, 32049, 32196, 32480, 32768
+  */
+  // Rotated coordinates, distortion-only frequencies
+  4540,  10238, 15544, 18304, 19757, 23509, 25290, 27584, 28482,
+  29128, 30175, 31082, 31785, 32137, 32557, 32768
   // Mimic 1D Quant (to match previous results)
   /*
   8459,  11198, 12077, 12296, 16363, 20538, 21978, 22382,

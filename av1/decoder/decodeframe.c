@@ -566,8 +566,8 @@ static void predict_and_reconstruct_intra_block(
                   tx_size);
     }
     cfl_predict_block(xd->cfl, dst, pd->dst.stride, row, col, tx_size,
-                      mbmi->cfl_alpha_ind, mbmi->cfl_alpha_signs[plane - 1],
-                      plane);
+                      mbmi->cfl_alpha_ind, mbmi->cfl_alpha_signs[0],
+                      mbmi->cfl_alpha_signs[1], plane);
   }
 #endif
   if (!mbmi->skip) {

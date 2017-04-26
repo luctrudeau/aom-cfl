@@ -179,8 +179,10 @@ static int read_cfl_alphas(
   // Signs are only coded for nonzero values
   // sign == 0 implies negative alpha
   // sign == 1 implies positive alpha
-  if (cfl_alpha_codes[ind][0] != 0.0) signs[0] = aom_read_bit(r, "cfl:sign");
-  if (cfl_alpha_codes[ind][1] != 0.0) signs[1] = aom_read_bit(r, "cfl:sign");
+  if (cfl_alpha_codes[ind][0] != cfl_alpha_codes[ind][1])
+    signs[0] = aom_read_bit(r, "cfl:sign");
+  if (cfl_alpha_codes[ind][0] != 0.0 || cfl_alpha_codes[ind][1] != 0.0)
+    signs[1] = aom_read_bit(r, "cfl:sign");
 
   // Used to obtain index probabilities
   // printf("%d\n", ind);
