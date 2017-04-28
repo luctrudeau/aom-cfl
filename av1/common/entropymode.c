@@ -2261,9 +2261,9 @@ static const aom_cdf_prob default_cfl_alpha_cdf[CFL_ALPHA_CDF_SIZE] = {
   19500, 20420, 23688, 24075, 24797, 26979, 28246, 28570, 29594,
   30169, 30450, 31455, 32049, 32196, 32480, 32768
   */
-  // Rotated coordinates, 3 iterations of RD-optimal alpha choice
-  13998, 15809, 20114, 21156, 22030, 25525, 26683, 28772, 29312,
-  29841, 30572, 31355, 31973, 32199, 32597, 32768
+  // Rotated coordinates, 1 iteration of RDO-guided k-means
+  14250, 16103, 20645, 21691, 22690, 26249, 27297, 29306, 29846,
+  30198, 30909, 31588, 32113, 32290, 32647, 32768
   // Mimic 1D Quant (to match previous results)
   /*
   8459,  11198, 12077, 12296, 16363, 20538, 21978, 22382,
