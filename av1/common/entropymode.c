@@ -2548,9 +2548,9 @@ static const aom_cdf_prob
 
 #if CONFIG_CFL
 static const aom_cdf_prob default_cfl_alpha_cdf[CFL_ALPHABET_SIZE] = {
-  // CDF after 11 iterations of RD-optimal alpha choice
-  22942, 23735, 26533, 26927, 27420, 28833, 29737, 29981,
-  30711, 31059, 31301, 31971, 32362, 32485, 32629, 32768
+  // CDF after 1 iteration of alpha RDO on subset3
+  23878, 24805, 27283, 27697, 28417, 29723, 30502, 30720,
+  31163, 31480, 31769, 32116, 32450, 32535, 32682, 32768
 };
 #endif
 
