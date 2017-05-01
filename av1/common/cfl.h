@@ -46,11 +46,11 @@ typedef struct {
 } CFL_CTX;
 
 static const double cfl_alpha_codes[CFL_ALPHABET_SIZE][CFL_PRED_PLANES] = {
-  // barrbrain's 1D quant inspired by subset 3
-  { 0., 0. },    { 0.125, 0. },   { 0.125, 0.125 }, { 0., 0.125 },
-  { 0.25, 0. },  { 0.25, 0.125 }, { 0.25, 0.25 },   { 0., 0.25 },
-  { 0.5, 0.5 },  { 0.125, 0.25 }, { 0.5, 0. },      { 0.25, 0.5 },
-  { 0.5, 0.25 }, { 0., 0.5 },     { 0.5, 0.125 },   { 0.125, 0.5 }
+  // barrbrain's simple 1D quant ordered by subset 3 likelihood
+  { 0., 0. },     { 0.125, 0.125 }, { 0.25 , 0.125 }, { 0.125, 0. },
+  { 0.25 , 0. },  { 0.25 , 0.25 },  { 0. , 0.125 },   { 0.5 , 0.5 },
+  { 0.5 , 0.25 }, { 0.125, 0.25 },  { 0.5 , 0. },     { 0.25 , 0.5 },
+  { 0. , 0.25 },  { 0.5 , 0.125 },  { 0.125, 0.5 },   { 0. , 0.5 }
 };
 
 void cfl_init(CFL_CTX *cfl, AV1_COMMON *cm, int subsampling_x,
