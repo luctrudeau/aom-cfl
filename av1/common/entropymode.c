@@ -2548,9 +2548,9 @@ static const aom_cdf_prob
 
 #if CONFIG_CFL
 static const aom_cdf_prob default_cfl_alpha_cdf[CFL_ALPHABET_SIZE] = {
-  // decreasing likelihood, after 4 iterations of alpha RDO on subset 3
-  23949, 26256, 27332, 28338, 29362, 30166, 30588, 30991,
-  31357, 31638, 31911, 32173, 32410, 32559, 32669, 32768
+  // decreasing likelihood, after 5 iterations of alpha RDO on subset 3
+  23949, 26289, 27295, 28298, 29342, 30162, 30583, 30985,
+  31352, 31634, 31907, 32172, 32408, 32557, 32668, 32768
 };
 #endif
 
