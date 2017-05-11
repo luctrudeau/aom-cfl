@@ -22,10 +22,6 @@ typedef struct AV1Common AV1_COMMON;
 // dependency by importing av1/common/blockd.h
 typedef struct macroblockd MACROBLOCKD;
 
-// Forward declaration of MB_MODE_INFO, in order to avoid creating a cyclic
-// dependency by importing av1/common/blockd.h
-typedef struct MB_MODE_INFO MB_MODE_INFO;
-
 typedef struct {
   // Pixel buffer containing the luma pixels used as prediction for chroma
   uint8_t y_pix[MAX_SB_SQUARE];
@@ -63,9 +59,15 @@ void cfl_init(CFL_CTX *cfl, AV1_COMMON *cm, int subsampling_x,
 
 void cfl_dc_pred(MACROBLOCKD *xd, BLOCK_SIZE plane_bsize, TX_SIZE tx_size);
 
-double cfl_alpha(int component, int mag);
+static inline double cfl_alpha(int component, int mag) {
+  return component * mag * (1. / (1 << 16));
+}
 
-double cfl_ind_to_alpha(const MB_MODE_INFO *mbmi, CFL_PRED_TYPE pred_type);
+static inline double cfl_ind_to_alpha(int uvec_ind, int mag_ind,
+                                      CFL_PRED_TYPE pred_type) {
+  const int comp = cfl_alpha_uvecs[uvec_ind][pred_type];
+  return (comp) ? cfl_alpha(comp, cfl_alpha_mags[mag_ind]) : 0.;
+}
 
 void cfl_predict_block(const CFL_CTX *cfl, uint8_t *dst, int dst_stride,
                        int row, int col, TX_SIZE tx_size, double dc_pred,
