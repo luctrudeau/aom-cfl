@@ -55,7 +55,7 @@ static const int cfl_alpha_uvecs[CFL_ALPHABET_SIZE][CFL_PRED_PLANES] = {
 
 // Q8 magnitudes applied to alpha_uvec
 static const int cfl_alpha_mags[CFL_ALPHABET_SIZE] = {
-  8, -8, 11, -11, 16, -16, 23, -23, 32, -32, 45, -45, 64, -64, 91, -91
+  16, -16, 23, -23, 32, -32, 45, -45, 64, -64, 91, -91, 128, -128, 181, -181
 };
 
 void cfl_init(CFL_CTX *cfl, AV1_COMMON *cm, int subsampling_x,
