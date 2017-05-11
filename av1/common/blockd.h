@@ -432,9 +432,10 @@ typedef struct MB_MODE_INFO {
 #endif  // CONFIG_WARPED_MOTION
 
 #if CONFIG_CFL
-  // Index of the alpha Cb and alpha Cr combination
-  int cfl_angle;
-  int cfl_mag;
+  // Index of the polar angle combination for alpha Cb and alpha Cr
+  int cfl_uvec_ind;
+  // Index of the magnitude combination for alpha Cb and alpha Cr
+  int cfl_mag_ind;
 #endif
 
   BOUNDARY_TYPE boundary_info;

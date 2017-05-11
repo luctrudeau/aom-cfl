@@ -214,11 +214,11 @@ static int read_cfl_alphas(FRAME_CONTEXT *const ec_ctx, aom_reader *r, int skip,
     *mag_out = 0;
     return 0;
   } else {
-    const int ind = aom_read_symbol(r, ec_ctx->cfl_angle_cdf, CFL_ALPHABET_SIZE,
-                                    "cfl:angle");
+    const int ind =
+        aom_read_symbol(r, ec_ctx->cfl_uvec_cdf, CFL_ALPHABET_SIZE, "cfl:uvec");
     if (ind)
-      *mag_out = aom_read_symbol(r, ec_ctx->cfl_mag_cdf, CFL_ALPHABET_SIZE,
-                                 "cfl:mag");
+      *mag_out =
+          aom_read_symbol(r, ec_ctx->cfl_mag_cdf, CFL_ALPHABET_SIZE, "cfl:mag");
 
     return ind;
   }
@@ -1124,13 +1124,13 @@ static void read_intra_frame_mode_info(AV1_COMMON *const cm,
 #if CONFIG_CFL
     // TODO(ltrudeau) support PALETTE
     if (mbmi->uv_mode == DC_PRED) {
-      mbmi->cfl_angle = read_cfl_alphas(
+      mbmi->cfl_uvec_ind = read_cfl_alphas(
 #if CONFIG_EC_ADAPT
           xd->tile_ctx,
 #else
           cm->fc,
 #endif  // CONFIG_EC_ADAPT
-          r, mbmi->skip, &mbmi->cfl_mag);
+          r, mbmi->skip, &mbmi->cfl_mag_ind);
     }
 #endif  // CONFIG_CFL
 

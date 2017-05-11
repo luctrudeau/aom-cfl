@@ -89,10 +89,10 @@ void cfl_dc_pred(MACROBLOCKD *xd, BLOCK_SIZE plane_bsize, TX_SIZE tx_size) {
 
 double cfl_ind_to_alpha(const MB_MODE_INFO *const mbmi,
                         CFL_PRED_TYPE pred_type) {
-  int const angle = cfl_alpha_angles[mbmi->cfl_angle][pred_type];
-  if (!angle) return 0.;
-  int const mag = cfl_alpha_mags[mbmi->cfl_mag];
-  return mag * angle * (1. / (1 << 16));
+  const int component = cfl_alpha_uvecs[mbmi->cfl_uvec_ind][pred_type];
+  return (component)
+             ? cfl_alpha_mags[mbmi->cfl_mag_ind] * component * (1. / (1 << 16))
+             : 0.;
 }
 
 // Predict the current transform block using CfL.

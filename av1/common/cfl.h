@@ -45,13 +45,15 @@ typedef struct {
   int num_tx_blk[CFL_PRED_PLANES];
 } CFL_CTX;
 
-static const int cfl_alpha_angles[CFL_ALPHABET_SIZE][CFL_PRED_PLANES] = {
+// Q8 unit vector codebook used to code the combination of alpha_u and alpha_v
+static const int cfl_alpha_uvecs[CFL_ALPHABET_SIZE][CFL_PRED_PLANES] = {
   { 0, 0 },      { 181, -181 }, { -160, 200 }, { 200, -160 },
   { -132, 220 }, { 220, -132 }, { -95, 238 },  { 238, -95 },
   { -50, 251 },  { 251, -50 },  { 0, 256 },    { 256, 0 },
   { 85, 241 },   { 241, 85 },   { 209, 148 },  { 148, 209 }
 };
 
+// Q8 magnitudes applied to alpha_uvec
 static const int cfl_alpha_mags[CFL_ALPHABET_SIZE] = {
   8, -8, 11, -11, 16, -16, 23, -23, 32, -32, 45, -45, 64, -64, 91, -91
 };

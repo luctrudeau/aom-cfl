@@ -1495,7 +1495,7 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
 
         // if SKIP is chosen at the block level, and ind != 0, we must change
         // the prediction
-        if (mbmi->cfl_angle != 0) {
+        if (mbmi->cfl_uvec_ind != 0) {
           const struct macroblockd_plane *const pd_cb = &xd->plane[AOM_PLANE_U];
           uint8_t *const dst_cb = pd_cb->dst.buf;
           const int dst_stride_cb = pd_cb->dst.stride;
@@ -1509,8 +1509,8 @@ void av1_encode_block_intra(int plane, int block, int blk_row, int blk_col,
                   (uint8_t)(xd->cfl->dc_pred[CFL_PRED_V] + 0.5);
             }
           }
-          mbmi->cfl_angle = 0;
-          mbmi->cfl_mag = 0;
+          mbmi->cfl_uvec_ind = 0;
+          mbmi->cfl_mag_ind = 0;
         }
       }
     }
@@ -1562,7 +1562,7 @@ static int cfl_alpha_dist(const uint8_t *y_pix, int y_stride, double y_avg,
 }
 
 static int cfl_compute_alpha_ind(MACROBLOCK *const x, const CFL_CTX *const cfl,
-                                 BLOCK_SIZE bsize, int *const cfl_angle_cost,
+                                 BLOCK_SIZE bsize, int *const cfl_uvec_cost,
                                  int *const cfl_mag_cost, int *mag_out) {
   const struct macroblock_plane *const p_u = &x->plane[AOM_PLANE_U];
   const struct macroblock_plane *const p_v = &x->plane[AOM_PLANE_V];
@@ -1598,14 +1598,14 @@ static int cfl_compute_alpha_ind(MACROBLOCK *const x, const CFL_CTX *const cfl,
          cfl_alpha_dist(tmp_pix, MAX_SB_SIZE, y_avg, src_v, src_stride_v,
                         block_width, block_height, dc_pred_v, 0, NULL);
   dist *= 16;
-  best_cost = RDCOST(x->rdmult, x->rddiv, *cfl_angle_cost, dist);
+  best_cost = RDCOST(x->rdmult, x->rddiv, *cfl_uvec_cost, dist);
 
   for (int c = 1; c < CFL_ALPHABET_SIZE; c++) {
     for (int m = 0; m < CFL_ALPHABET_SIZE; m += 2) {
-      const double alpha_u = cfl_alpha_angles[c][CFL_PRED_U] *
-                             cfl_alpha_mags[m] * (1. / (1 << 16));
-      const double alpha_v = cfl_alpha_angles[c][CFL_PRED_V] *
-                             cfl_alpha_mags[m] * (1. / (1 << 16));
+      const double alpha_u =
+          cfl_alpha_uvecs[c][CFL_PRED_U] * cfl_alpha_mags[m] * (1. / (1 << 16));
+      const double alpha_v =
+          cfl_alpha_uvecs[c][CFL_PRED_V] * cfl_alpha_mags[m] * (1. / (1 << 16));
       dist_u = cfl_alpha_dist(tmp_pix, MAX_SB_SIZE, y_avg, src_u, src_stride_u,
                               block_width, block_height, dc_pred_u, alpha_u,
                               &dist_u_neg);
@@ -1613,8 +1613,8 @@ static int cfl_compute_alpha_ind(MACROBLOCK *const x, const CFL_CTX *const cfl,
                               block_width, block_height, dc_pred_v, alpha_v,
                               &dist_v_neg);
       for (int sign = CFL_SIGN_NEG; sign < CFL_SIGNS; sign++) {
-        const int rate = cfl_angle_cost[c] +
-                         cfl_mag_cost[sign == CFL_SIGN_POS ? m : m + 1];
+        const int rate =
+            cfl_uvec_cost[c] + cfl_mag_cost[sign == CFL_SIGN_POS ? m : m + 1];
         dist = (sign == CFL_SIGN_POS ? dist_u : dist_u_neg) +
                (sign == CFL_SIGN_POS ? dist_v : dist_v_neg);
         dist *= 16;
@@ -1644,26 +1644,27 @@ void av1_predict_intra_block_encoder_facade(MACROBLOCK *x, int plane,
 #error "CfL rate estimation requires ec_adapt."
 #endif
       FRAME_CONTEXT *const ec_ctx = xd->tile_ctx;
-      assert(ec_ctx->cfl_angle_cdf[CFL_ALPHABET_SIZE - 1] ==
+      assert(ec_ctx->cfl_uvec_cdf[CFL_ALPHABET_SIZE - 1] ==
              AOM_ICDF(CDF_PROB_TOP));
       assert(ec_ctx->cfl_mag_cdf[CFL_ALPHABET_SIZE - 1] ==
              AOM_ICDF(CDF_PROB_TOP));
       const int prob_den = CDF_PROB_TOP;
 
       CFL_CTX *const cfl = xd->cfl;
-      int cfl_angle_costs[CFL_ALPHABET_SIZE];
+      int cfl_uvec_costs[CFL_ALPHABET_SIZE];
       int cfl_mag_costs[CFL_ALPHABET_SIZE];
       for (int c = 0; c < CFL_ALPHABET_SIZE; c++) {
-        int prob_num = AOM_ICDF(ec_ctx->cfl_angle_cdf[c]);
-        if (c > 0) prob_num -= AOM_ICDF(ec_ctx->cfl_angle_cdf[c - 1]);
-        cfl_angle_costs[c] = av1_cost_zero(get_prob(prob_num, prob_den));
+        int prob_num = AOM_ICDF(ec_ctx->cfl_uvec_cdf[c]);
+        if (c > 0) prob_num -= AOM_ICDF(ec_ctx->cfl_uvec_cdf[c - 1]);
+        cfl_uvec_costs[c] = av1_cost_zero(get_prob(prob_num, prob_den));
         prob_num = AOM_ICDF(ec_ctx->cfl_mag_cdf[c]);
         if (c > 0) prob_num -= AOM_ICDF(ec_ctx->cfl_mag_cdf[c - 1]);
         cfl_mag_costs[c] = av1_cost_zero(get_prob(prob_num, prob_den));
       }
       cfl_dc_pred(xd, plane_bsize, tx_size);
-      mbmi->cfl_angle = cfl_compute_alpha_ind(
-          x, cfl, plane_bsize, cfl_angle_costs, cfl_mag_costs, &mbmi->cfl_mag);
+      mbmi->cfl_uvec_ind =
+          cfl_compute_alpha_ind(x, cfl, plane_bsize, cfl_uvec_costs,
+                                cfl_mag_costs, &mbmi->cfl_mag_ind);
     }
   }
   av1_predict_intra_block_facade(xd, plane, block_idx, blk_col, blk_row,
