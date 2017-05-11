@@ -1603,9 +1603,10 @@ static int cfl_compute_alpha_ind(MACROBLOCK *const x, const CFL_CTX *const cfl,
   for (int c = 1; c < CFL_ALPHABET_SIZE; c++) {
     for (int m = 0; m < CFL_ALPHABET_SIZE; m += 2) {
       const double alpha_u =
-          cfl_alpha_uvecs[c][CFL_PRED_U] * cfl_alpha_mags[m] * (1. / (1 << 16));
+          cfl_alpha(cfl_alpha_uvecs[c][CFL_PRED_U], cfl_alpha_mags[m]);
       const double alpha_v =
-          cfl_alpha_uvecs[c][CFL_PRED_V] * cfl_alpha_mags[m] * (1. / (1 << 16));
+          cfl_alpha(cfl_alpha_uvecs[c][CFL_PRED_V], cfl_alpha_mags[m]);
+
       dist_u = cfl_alpha_dist(tmp_pix, MAX_SB_SIZE, y_avg, src_u, src_stride_u,
                               block_width, block_height, dc_pred_u, alpha_u,
                               &dist_u_neg);

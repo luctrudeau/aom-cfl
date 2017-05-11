@@ -63,6 +63,8 @@ void cfl_init(CFL_CTX *cfl, AV1_COMMON *cm, int subsampling_x,
 
 void cfl_dc_pred(MACROBLOCKD *xd, BLOCK_SIZE plane_bsize, TX_SIZE tx_size);
 
+double cfl_alpha(int component, int mag);
+
 double cfl_ind_to_alpha(const MB_MODE_INFO *mbmi, CFL_PRED_TYPE pred_type);
 
 void cfl_predict_block(const CFL_CTX *cfl, uint8_t *dst, int dst_stride,
