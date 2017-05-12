@@ -1562,8 +1562,7 @@ static int cfl_alpha_dist(const uint8_t *y_pix, int y_stride, double y_avg,
 }
 
 static int cfl_compute_alpha_ind(MACROBLOCK *const x, const CFL_CTX *const cfl,
-                                 BLOCK_SIZE bsize, int *const cfl_uvec_cost,
-                                 int *const cfl_mag_cost, int *mag_out) {
+                                 BLOCK_SIZE bsize, int *mag_out) {
   const struct macroblock_plane *const p_u = &x->plane[AOM_PLANE_U];
   const struct macroblock_plane *const p_v = &x->plane[AOM_PLANE_V];
   const uint8_t *const src_u = p_u->src.buf;
@@ -1598,7 +1597,7 @@ static int cfl_compute_alpha_ind(MACROBLOCK *const x, const CFL_CTX *const cfl,
          cfl_alpha_dist(tmp_pix, MAX_SB_SIZE, y_avg, src_v, src_stride_v,
                         block_width, block_height, dc_pred_v, 0, NULL);
   dist *= 16;
-  best_cost = RDCOST(x->rdmult, x->rddiv, *cfl_uvec_cost, dist);
+  best_cost = RDCOST(x->rdmult, x->rddiv, cfl->uvec_costs[0], dist);
 
   for (int c = 1; c < CFL_ALPHABET_SIZE; c++) {
     for (int m = 0; m < CFL_ALPHABET_SIZE; m += 2) {
@@ -1614,8 +1613,8 @@ static int cfl_compute_alpha_ind(MACROBLOCK *const x, const CFL_CTX *const cfl,
                               block_width, block_height, dc_pred_v, alpha_v,
                               &dist_v_neg);
       for (int sign = CFL_SIGN_NEG; sign < CFL_SIGNS; sign++) {
-        const int rate =
-            cfl_uvec_cost[c] + cfl_mag_cost[sign == CFL_SIGN_POS ? m : m + 1];
+        const int rate = cfl->uvec_costs[c] +
+                         cfl->mag_costs[sign == CFL_SIGN_POS ? m : m + 1];
         dist = (sign == CFL_SIGN_POS ? dist_u : dist_u_neg) +
                (sign == CFL_SIGN_POS ? dist_v : dist_v_neg);
         dist *= 16;
@@ -1633,6 +1632,32 @@ static int cfl_compute_alpha_ind(MACROBLOCK *const x, const CFL_CTX *const cfl,
   return ind;
 }
 
+static void cfl_update_costs(CFL_CTX *const cfl, FRAME_CONTEXT *const ec_ctx) {
+#if !CONFIG_EC_ADAPT
+#error "CfL rate estimation requires ec_adapt."
+#endif
+
+  assert(ec_ctx->cfl_uvec_cdf[CFL_ALPHABET_SIZE - 1] == AOM_ICDF(CDF_PROB_TOP));
+  assert(ec_ctx->cfl_mag_cdf[CFL_ALPHABET_SIZE - 1] == AOM_ICDF(CDF_PROB_TOP));
+
+  const int prob_den = CDF_PROB_TOP;
+  int prob_num = AOM_ICDF(ec_ctx->cfl_uvec_cdf[0]);
+  cfl->uvec_costs[0] = av1_cost_zero(get_prob(prob_num, prob_den));
+
+  prob_num = AOM_ICDF(ec_ctx->cfl_mag_cdf[0]);
+  cfl->mag_costs[0] = av1_cost_zero(get_prob(prob_num, prob_den));
+
+  for (int c = 0; c < CFL_ALPHABET_SIZE; c++) {
+    prob_num = AOM_ICDF(ec_ctx->cfl_uvec_cdf[c]) -
+               AOM_ICDF(ec_ctx->cfl_uvec_cdf[c - 1]);
+    cfl->uvec_costs[c] = av1_cost_zero(get_prob(prob_num, prob_den));
+
+    prob_num =
+        AOM_ICDF(ec_ctx->cfl_mag_cdf[c]) - AOM_ICDF(ec_ctx->cfl_mag_cdf[c - 1]);
+    cfl->mag_costs[c] = av1_cost_zero(get_prob(prob_num, prob_den));
+  }
+}
+
 void av1_predict_intra_block_encoder_facade(MACROBLOCK *x, int plane,
                                             int block_idx, int blk_col,
                                             int blk_row, TX_SIZE tx_size,
@@ -1645,27 +1670,11 @@ void av1_predict_intra_block_encoder_facade(MACROBLOCK *x, int plane,
 #error "CfL rate estimation requires ec_adapt."
 #endif
       FRAME_CONTEXT *const ec_ctx = xd->tile_ctx;
-      assert(ec_ctx->cfl_uvec_cdf[CFL_ALPHABET_SIZE - 1] ==
-             AOM_ICDF(CDF_PROB_TOP));
-      assert(ec_ctx->cfl_mag_cdf[CFL_ALPHABET_SIZE - 1] ==
-             AOM_ICDF(CDF_PROB_TOP));
-      const int prob_den = CDF_PROB_TOP;
-
       CFL_CTX *const cfl = xd->cfl;
-      int cfl_uvec_costs[CFL_ALPHABET_SIZE];
-      int cfl_mag_costs[CFL_ALPHABET_SIZE];
-      for (int c = 0; c < CFL_ALPHABET_SIZE; c++) {
-        int prob_num = AOM_ICDF(ec_ctx->cfl_uvec_cdf[c]);
-        if (c > 0) prob_num -= AOM_ICDF(ec_ctx->cfl_uvec_cdf[c - 1]);
-        cfl_uvec_costs[c] = av1_cost_zero(get_prob(prob_num, prob_den));
-        prob_num = AOM_ICDF(ec_ctx->cfl_mag_cdf[c]);
-        if (c > 0) prob_num -= AOM_ICDF(ec_ctx->cfl_mag_cdf[c - 1]);
-        cfl_mag_costs[c] = av1_cost_zero(get_prob(prob_num, prob_den));
-      }
+      cfl_update_costs(cfl, ec_ctx);
       cfl_dc_pred(xd, plane_bsize, tx_size);
       mbmi->cfl_uvec_ind =
-          cfl_compute_alpha_ind(x, cfl, plane_bsize, cfl_uvec_costs,
-                                cfl_mag_costs, &mbmi->cfl_mag_ind);
+          cfl_compute_alpha_ind(x, cfl, plane_bsize, &mbmi->cfl_mag_ind);
     }
   }
   av1_predict_intra_block_facade(xd, plane, block_idx, blk_col, blk_row,
