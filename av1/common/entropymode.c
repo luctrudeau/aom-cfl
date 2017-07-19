@@ -3440,10 +3440,10 @@ static const aom_cdf_prob
 
 #if CONFIG_CFL
 static const aom_cdf_prob default_cfl_alpha_cdf[CDF_SIZE(CFL_ALPHABET_SIZE)] = {
-  AOM_ICDF(196),   AOM_ICDF(2849),  AOM_ICDF(6322),  AOM_ICDF(13152),
-  AOM_ICDF(21916), AOM_ICDF(23711), AOM_ICDF(25438), AOM_ICDF(26700),
-  AOM_ICDF(27669), AOM_ICDF(28890), AOM_ICDF(31520), AOM_ICDF(31823),
-  AOM_ICDF(32155), AOM_ICDF(32538), AOM_ICDF(32768), 0
+  AOM_ICDF(2048),  AOM_ICDF(4096),  AOM_ICDF(6144),  AOM_ICDF(8192),
+  AOM_ICDF(10240), AOM_ICDF(12288), AOM_ICDF(14336), AOM_ICDF(16384),
+  AOM_ICDF(18432), AOM_ICDF(20480), AOM_ICDF(22528), AOM_ICDF(24576),
+  AOM_ICDF(26624), AOM_ICDF(28672), AOM_ICDF(30720), AOM_ICDF(32768)
 };
 #endif
 
@@ -4994,7 +4994,8 @@ static void init_mode_probs(FRAME_CONTEXT *fc) {
 #endif
 #endif  // CONFIG_DELTA_Q
 #if CONFIG_CFL
-  av1_copy(fc->cfl_alpha_cdf, default_cfl_alpha_cdf);
+  av1_copy(fc->cfl_alpha_u_cdf, default_cfl_alpha_cdf);
+  av1_copy(fc->cfl_alpha_v_cdf, default_cfl_alpha_cdf);
 #endif
 #if CONFIG_INTRABC
   fc->intrabc_prob = INTRABC_PROB_DEFAULT;
