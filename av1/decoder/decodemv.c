@@ -165,15 +165,17 @@ static PREDICTION_MODE read_intra_mode_uv(FRAME_CONTEXT *ec_ctx,
 #if CONFIG_CFL
 static int read_cfl_alphas(FRAME_CONTEXT *const ec_ctx, aom_reader *r,
                            CFL_SIGN_TYPE signs_out[CFL_PRED_PLANES]) {
-  const int ind =
-      aom_read_symbol(r, ec_ctx->cfl_alpha_cdf, CFL_ALPHABET_SIZE, "cfl:alpha");
+  int ind =
+      aom_read_symbol(r, ec_ctx->cfl_alpha_u_cdf, 16, "cfl:alpha");
+  ind +=
+      aom_read_symbol(r, ec_ctx->cfl_alpha_v_cdf, 16, "cfl:alpha") << 4;
   // Signs are only coded for nonzero values
   // sign == 0 implies negative alpha
   // sign == 1 implies positive alpha
-  signs_out[CFL_PRED_U] = cfl_alpha_codes[ind][CFL_PRED_U]
+  signs_out[CFL_PRED_U] = (ind & 15)
                               ? aom_read_bit(r, "cfl:sign")
                               : CFL_SIGN_POS;
-  signs_out[CFL_PRED_V] = cfl_alpha_codes[ind][CFL_PRED_V]
+  signs_out[CFL_PRED_V] = (ind >> 4)
                               ? aom_read_bit(r, "cfl:sign")
                               : CFL_SIGN_POS;
 
