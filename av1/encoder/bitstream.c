@@ -1664,20 +1664,19 @@ static void write_cfl_alphas(FRAME_CONTEXT *const frame_ctx, int ind,
                              const CFL_SIGN_TYPE signs[CFL_SIGNS],
                              aom_writer *w) {
   // Check for uninitialized signs
-  if ((ind & 15) == 0)
-    assert(signs[CFL_PRED_U] == CFL_SIGN_POS);
-  if ((ind >> 4) == 0)
-    assert(signs[CFL_PRED_V] == CFL_SIGN_POS);
+  if (signs[CFL_PRED_U] == CFL_SIGN_ZERO)
+    assert((ind & 0xf0) == 0);
+  if (signs[CFL_PRED_V] == CFL_SIGN_ZERO)
+    assert((ind & 0x0f) == 0);
 
-  // Write a symbol representing a combination of alpha Cb and alpha Cr.
-  aom_write_symbol(w, ind & 15, frame_ctx->cfl_alpha_u_cdf, 16);
-  aom_write_symbol(w, ind >> 4, frame_ctx->cfl_alpha_v_cdf, 16);
+  const int js = signs[CFL_PRED_U] * CFL_SIGNS + signs[CFL_PRED_V];
+  aom_write_symbol(w, js, frame_ctx->cfl_sign_cdf, CFL_JOINT_SIGNS);
 
-  // Signs are only signaled for nonzero codes.
-  if ((ind & 15) != 0)
-    aom_write_bit(w, signs[CFL_PRED_U]);
-  if ((ind >> 4) != 0)
-    aom_write_bit(w, signs[CFL_PRED_V]);
+  // Magnitudes are only signaled for nonzero codes.
+  if (signs[CFL_PRED_U] != CFL_SIGN_ZERO)
+    aom_write_symbol(w, ind >> 4, frame_ctx->cfl_alpha_cdf[js][CFL_PRED_U], 16);
+  if (signs[CFL_PRED_V] != CFL_SIGN_ZERO)
+    aom_write_symbol(w, ind & 15, frame_ctx->cfl_alpha_cdf[js][CFL_PRED_V], 16);
 }
 #endif
 

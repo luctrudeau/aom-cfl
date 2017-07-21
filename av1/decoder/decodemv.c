@@ -170,19 +170,18 @@ static UV_PREDICTION_MODE read_intra_mode_uv(FRAME_CONTEXT *ec_ctx,
 #if CONFIG_CFL
 static int read_cfl_alphas(FRAME_CONTEXT *const ec_ctx, aom_reader *r,
                            CFL_SIGN_TYPE signs_out[CFL_PRED_PLANES]) {
-  int ind =
-      aom_read_symbol(r, ec_ctx->cfl_alpha_u_cdf, 16, "cfl:alpha");
-  ind +=
-      aom_read_symbol(r, ec_ctx->cfl_alpha_v_cdf, 16, "cfl:alpha") << 4;
-  // Signs are only coded for nonzero values
-  // sign == 0 implies negative alpha
-  // sign == 1 implies positive alpha
-  signs_out[CFL_PRED_U] = (ind & 15)
-                              ? aom_read_bit(r, "cfl:sign")
-                              : CFL_SIGN_POS;
-  signs_out[CFL_PRED_V] = (ind >> 4)
-                              ? aom_read_bit(r, "cfl:sign")
-                              : CFL_SIGN_POS;
+  int js = aom_read_symbol(r, ec_ctx->cfl_sign_cdf, 9, "cfl:sign");
+  int ind = 0;
+  signs_out[CFL_PRED_U] = js / 3;
+  signs_out[CFL_PRED_V] = js % 3;
+
+  // Magnitudes are only coded for nonzero values
+  if (signs_out[CFL_PRED_U] != CFL_SIGN_ZERO)
+    ind += aom_read_symbol(r, ec_ctx->cfl_alpha_cdf[js][0], 16, "cfl:alpha")
+           << 4;
+  if (signs_out[CFL_PRED_V] != CFL_SIGN_ZERO)
+    ind += aom_read_symbol(r, ec_ctx->cfl_alpha_cdf[js][1], 16, "cfl:alpha");
+
   return ind;
 }
 #endif

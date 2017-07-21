@@ -243,12 +243,13 @@ static void cfl_compute_averages(CFL_CTX *cfl, TX_SIZE tx_size) {
 
 static INLINE int cfl_idx_to_alpha(int alpha_idx, CFL_SIGN_TYPE alpha_sign,
                                    CFL_PRED_TYPE pred_type) {
-  const int abs_alpha_q4 = (pred_type == CFL_PRED_U) ? (alpha_idx & 15) : (alpha_idx >> 4);
-  if (alpha_sign == CFL_SIGN_POS) {
-    return abs_alpha_q4;
+  const int abs_alpha_q4 = (pred_type == CFL_PRED_U) ? (alpha_idx >> 4) : (alpha_idx & 15);
+  if (alpha_sign == CFL_SIGN_ZERO) {
+    return 0;
+  } else if (alpha_sign == CFL_SIGN_POS) {
+    return abs_alpha_q4 + 1;
   } else {
-    assert(abs_alpha_q4 != 0);
-    return -abs_alpha_q4;
+    return -abs_alpha_q4 - 1;
   }
 }
 
