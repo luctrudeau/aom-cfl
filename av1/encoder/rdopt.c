@@ -5340,19 +5340,32 @@ static int64_t cfl_alpha_dist(const uint8_t *y_pix, int y_stride,
 
 static inline void cfl_update_costs(CFL_CTX *cfl, FRAME_CONTEXT *ec_ctx) {
   aom_cdf_prob prev_cdf = 0;
-  for (int c = 0; c < CFL_ALPHABET_SIZE; c++) {
-    const int sign_bit_cost = ((c & 0x0f) != 0);
-    aom_cdf_prob prob = AOM_ICDF(ec_ctx->cfl_alpha_u_cdf[c & 0x0f]) - prev_cdf;
-    prev_cdf = AOM_ICDF(ec_ctx->cfl_alpha_u_cdf[c & 0x0f]);
-    if ((c & 15) == 15) prev_cdf = 0;
-    cfl->costs[c] = av1_cost_symbol(prob) + av1_cost_literal(sign_bit_cost);
-  }
-  prev_cdf = 0;
-  for (int c = 0; c < CFL_ALPHABET_SIZE; c++) {
-    const int sign_bit_cost = ((c & 0xf0) != 0);
-    aom_cdf_prob prob = AOM_ICDF(ec_ctx->cfl_alpha_v_cdf[c >> 4]) - prev_cdf;
-    if ((c & 15) == 15) prev_cdf = AOM_ICDF(ec_ctx->cfl_alpha_v_cdf[c >> 4]);
-    cfl->costs[c] += av1_cost_symbol(prob) + av1_cost_literal(sign_bit_cost);
+
+  for (CFL_SIGN_TYPE sign_u = 0; sign_u < CFL_SIGNS; sign_u++) {
+    for (CFL_SIGN_TYPE sign_v = 0; sign_v < CFL_SIGNS; sign_v++) {
+      const int js = sign_u * CFL_SIGNS + sign_v;
+      aom_cdf_prob prob = AOM_ICDF(ec_ctx->cfl_sign_cdf[js]) - prev_cdf;
+      const int sign_cost = av1_cost_symbol(prob);
+      prev_cdf = 0;
+      for (int u = 0; u < UV_ALPHABET_SIZE; u++) {
+        cfl->costs[js][CFL_PRED_U][u] = sign_cost;
+        if (sign_u != CFL_SIGN_ZERO) {
+          prob = AOM_ICDF(ec_ctx->cfl_alpha_cdf[js][CFL_PRED_U][u]) - prev_cdf;
+          prev_cdf = AOM_ICDF(ec_ctx->cfl_alpha_cdf[js][CFL_PRED_U][u]);
+          cfl->costs[js][CFL_PRED_U][u] += av1_cost_symbol(prob);
+        }
+      }
+      prev_cdf = 0;
+      for (int v = 0; v < UV_ALPHABET_SIZE; v++) {
+        cfl->costs[js][CFL_PRED_V][v] = 0;
+        if (sign_v != CFL_SIGN_ZERO) {
+          prob = AOM_ICDF(ec_ctx->cfl_alpha_cdf[js][CFL_PRED_V][v]) - prev_cdf;
+          prev_cdf = AOM_ICDF(ec_ctx->cfl_alpha_cdf[js][CFL_PRED_V][v]);
+          cfl->costs[js][CFL_PRED_V][v] = av1_cost_symbol(prob);
+        }
+      }
+      prev_cdf = AOM_ICDF(ec_ctx->cfl_sign_cdf[js]);
+    }
   }
 }
 
@@ -5402,38 +5415,49 @@ static int cfl_rd_pick_alpha(MACROBLOCK *const x, TX_SIZE tx_size) {
   int64_t dist;
   int64_t cost;
   int64_t best_cost;
+  int best_rate;
 
   // Compute least squares parameter of the entire block
   // IMPORTANT: We assume that the first code is 0,0
   int ind = 0;
-  signs[CFL_PRED_U] = CFL_SIGN_POS;
-  signs[CFL_PRED_V] = CFL_SIGN_POS;
+  signs[CFL_PRED_U] = CFL_SIGN_ZERO;
+  signs[CFL_PRED_V] = CFL_SIGN_ZERO;
 
   dist = sse[CFL_PRED_U][0] + sse[CFL_PRED_V][0];
   dist *= 16;
-  best_cost = RDCOST(x->rdmult, cfl->costs[0], dist);
+  best_rate = cfl->costs[0][CFL_PRED_U][0] +
+              cfl->costs[0][CFL_PRED_V][0];
+  best_cost = RDCOST(x->rdmult, best_rate, dist);
 
-  for (int c = 1; c < CFL_ALPHABET_SIZE; c++) {
-    const int idx_u = (c & 15) ? (c & 15) * 2 - 1 : 0;
-    const int idx_v = (c >> 4) ? (c >> 4) * 2 - 1 : 0;
-    for (CFL_SIGN_TYPE sign_u = idx_u == 0; sign_u < CFL_SIGNS; sign_u++) {
-      for (CFL_SIGN_TYPE sign_v = idx_v == 0; sign_v < CFL_SIGNS; sign_v++) {
-        dist = sse[CFL_PRED_U][idx_u + (sign_u == CFL_SIGN_NEG)] +
-               sse[CFL_PRED_V][idx_v + (sign_v == CFL_SIGN_NEG)];
-        dist *= 16;
-        cost = RDCOST(x->rdmult, cfl->costs[c], dist);
-        if (cost < best_cost) {
-          best_cost = cost;
-          ind = c;
-          signs[CFL_PRED_U] = sign_u;
-          signs[CFL_PRED_V] = sign_v;
+  for (CFL_SIGN_TYPE sign_u = 0; sign_u < CFL_SIGNS; sign_u++) {
+    for (CFL_SIGN_TYPE sign_v = 0; sign_v < CFL_SIGNS; sign_v++) {
+      const int joint_sign = sign_u * CFL_SIGNS + sign_v;
+      for (int u = 0; u < UV_ALPHABET_SIZE; u++) {
+        const int idx_u = (sign_u == CFL_SIGN_ZERO) ? 0 : u * 2 + 1;
+        for (int v = 0; v < UV_ALPHABET_SIZE; v++) {
+          const int idx_v = (sign_v == CFL_SIGN_ZERO) ? 0 : v * 2 + 1;
+          dist = sse[CFL_PRED_U][idx_u + (sign_u == CFL_SIGN_NEG)] +
+                 sse[CFL_PRED_V][idx_v + (sign_v == CFL_SIGN_NEG)];
+          dist *= 16;
+          const int rate = cfl->costs[joint_sign][CFL_PRED_U][u] +
+                           cfl->costs[joint_sign][CFL_PRED_V][v];
+          cost = RDCOST(x->rdmult, rate, dist);
+          if (cost < best_cost) {
+            best_cost = cost;
+            best_rate = rate;
+            ind = u * UV_ALPHABET_SIZE + v;
+            signs[CFL_PRED_U] = sign_u;
+            signs[CFL_PRED_V] = sign_v;
+          }
+          if (sign_u == CFL_SIGN_ZERO) break;
         }
+        if (sign_u == CFL_SIGN_ZERO) break;
       }
     }
   }
 
   mbmi->cfl_alpha_idx = ind;
-  return cfl->costs[ind];
+  return best_rate;
 }
 #endif  // CONFIG_CFL
 

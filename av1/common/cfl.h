@@ -60,7 +60,7 @@ typedef struct {
   int dc_pred[CFL_PRED_PLANES];
 
   // The rate associated with each alpha codeword
-  int costs[CFL_ALPHABET_SIZE];
+  int costs[CFL_JOINT_SIGNS][CFL_PRED_PLANES][UV_ALPHABET_SIZE];
 
   int mi_row, mi_col;
 } CFL_CTX;
@@ -74,7 +74,8 @@ static const int cfl_alpha_mags_q4[CFL_MAGS_SIZE] = {
   0, 1, -1, 2, -2, 3, -3,
   4, -4, 5, -5, 6, -6, 7, -7,
   8, -8, 9, -9, 10, -10, 11, -11,
-  12, -12, 13, -13, 14, -14, 15, -15
+  12, -12, 13, -13, 14, -14, 15, -15,
+  16, -16
 };
 
 static INLINE int get_scaled_luma_q0(int alpha_q4, int y_pix, int avg_q3) {

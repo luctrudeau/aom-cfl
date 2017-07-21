@@ -3249,18 +3249,17 @@ static const aom_cdf_prob
 #endif  // CONFIG_EXT_INTRA && CONFIG_INTRA_INTERP
 
 #if CONFIG_CFL
-static const aom_cdf_prob default_cfl_alpha_u_cdf[CDF_SIZE(16)] = {
-  AOM_ICDF(14147), AOM_ICDF(17369), AOM_ICDF(22372), AOM_ICDF(25646),
-  AOM_ICDF(28454), AOM_ICDF(30249), AOM_ICDF(31179), AOM_ICDF(31675),
-  AOM_ICDF(32352), AOM_ICDF(32507), AOM_ICDF(32591), AOM_ICDF(32631),
-  AOM_ICDF(32658), AOM_ICDF(32674), AOM_ICDF(32685), AOM_ICDF(32768)
+static const aom_cdf_prob default_cfl_sign_cdf[CDF_SIZE(9)] = {
+  AOM_ICDF(3641), AOM_ICDF(7282), AOM_ICDF(10923),
+  AOM_ICDF(14564), AOM_ICDF(18204), AOM_ICDF(21845),
+  AOM_ICDF(25486), AOM_ICDF(29127), AOM_ICDF(32768)
 };
 
-static const aom_cdf_prob default_cfl_alpha_v_cdf[CDF_SIZE(16)] = {
-  AOM_ICDF(18017), AOM_ICDF(22515), AOM_ICDF(26949), AOM_ICDF(29055),
-  AOM_ICDF(30455), AOM_ICDF(31202), AOM_ICDF(31604), AOM_ICDF(31826),
-  AOM_ICDF(32231), AOM_ICDF(32331), AOM_ICDF(32488), AOM_ICDF(32563),
-  AOM_ICDF(32604), AOM_ICDF(32628), AOM_ICDF(32644), AOM_ICDF(32768)
+static const aom_cdf_prob default_cfl_alpha_cdf[CDF_SIZE(16)] = {
+  AOM_ICDF(12599), AOM_ICDF(20356), AOM_ICDF(25131), AOM_ICDF(28072),
+  AOM_ICDF(29882), AOM_ICDF(30997), AOM_ICDF(31683), AOM_ICDF(32105),
+  AOM_ICDF(32365), AOM_ICDF(32525), AOM_ICDF(32624), AOM_ICDF(32685),
+  AOM_ICDF(32722), AOM_ICDF(32745), AOM_ICDF(32759), AOM_ICDF(32768)
 };
 #endif
 
@@ -4805,8 +4804,11 @@ static void init_mode_probs(FRAME_CONTEXT *fc) {
 #endif
 #endif  // CONFIG_DELTA_Q
 #if CONFIG_CFL
-  av1_copy(fc->cfl_alpha_u_cdf, default_cfl_alpha_u_cdf);
-  av1_copy(fc->cfl_alpha_v_cdf, default_cfl_alpha_v_cdf);
+  av1_copy(fc->cfl_sign_cdf, default_cfl_sign_cdf);
+  for (int js = 0; js < 9; js++) {
+    av1_copy(fc->cfl_alpha_cdf[js][0], default_cfl_alpha_cdf);
+    av1_copy(fc->cfl_alpha_cdf[js][1], default_cfl_alpha_cdf);
+  }
 #endif
 #if CONFIG_INTRABC
   fc->intrabc_prob = INTRABC_PROB_DEFAULT;
