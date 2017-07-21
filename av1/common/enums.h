@@ -330,6 +330,9 @@ typedef enum {
   CFL_SIGNS
 } CFL_SIGN_TYPE;
 
+#define CFL_IDX_U(idx) (idx >> 4)
+#define CFL_IDX_V(idx) (idx & 15)
+
 #define CFL_JOINT_SIGNS (CFL_SIGNS * CFL_SIGNS)
 #endif
 
