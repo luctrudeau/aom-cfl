@@ -5517,7 +5517,7 @@ static int cfl_rd_pick_alpha(MACROBLOCK *const x, TX_SIZE tx_size) {
             signs[CFL_PRED_U] = sign_u;
             signs[CFL_PRED_V] = sign_v;
           }
-          if (sign_u == CFL_SIGN_ZERO) break;
+          if (sign_v == CFL_SIGN_ZERO) break;
         }
         if (sign_u == CFL_SIGN_ZERO) break;
       }
