@@ -5001,9 +5001,9 @@ static void init_mode_probs(FRAME_CONTEXT *fc) {
 #endif  // CONFIG_DELTA_Q
 #if CONFIG_CFL
   av1_copy(fc->cfl_sign_cdf, default_cfl_sign_cdf);
-  for (int js = 0; js < 9; js++) {
-    av1_copy(fc->cfl_alpha_cdf[js][0], default_cfl_alpha_cdf);
-    av1_copy(fc->cfl_alpha_cdf[js][1], default_cfl_alpha_cdf);
+  for (int js = 0; js < CFL_JOINT_SIGNS; js++) {
+    av1_copy(fc->cfl_alpha_cdf[js][CFL_PRED_U], default_cfl_alpha_cdf);
+    av1_copy(fc->cfl_alpha_cdf[js][CFL_PRED_V], default_cfl_alpha_cdf);
   }
 #endif
 #if CONFIG_INTRABC
