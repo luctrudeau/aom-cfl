@@ -163,21 +163,40 @@ static PREDICTION_MODE read_intra_mode_uv(FRAME_CONTEXT *ec_ctx,
 }
 
 #if CONFIG_CFL
+#if 0
+static INLINE int cfl_idx_to_alpha(int alpha_idx, CFL_SIGN_TYPE alpha_sign,
+                                   CFL_PRED_TYPE pred_type) {
+  const int abs_alpha_q4 = (pred_type == CFL_PRED_U) ? (alpha_idx >> 4) : (alpha_idx & 15);
+  if (alpha_sign == CFL_SIGN_ZERO) {
+    return 0;
+  } else if (alpha_sign == CFL_SIGN_POS) {
+    return abs_alpha_q4 + 1;
+  } else {
+    return -abs_alpha_q4 - 1;
+  }
+}
+#endif
+
 static int read_cfl_alphas(FRAME_CONTEXT *const ec_ctx, aom_reader *r,
                            CFL_SIGN_TYPE signs_out[CFL_PRED_PLANES]) {
-  int js = aom_read_symbol(r, ec_ctx->cfl_sign_cdf, 9, "cfl:sign");
+  int js = aom_read_symbol(r, ec_ctx->cfl_sign_cdf, CFL_JOINT_SIGNS, "cfl:sign");
   int ind = 0;
-  signs_out[CFL_PRED_U] = js / 3;
-  signs_out[CFL_PRED_V] = js % 3;
+  int sign_u = signs_out[CFL_PRED_U] = (js / CFL_SIGNS);
+  int sign_v = signs_out[CFL_PRED_V] = (js % CFL_SIGNS);
 
   // Magnitudes are only coded for nonzero values
-  if (signs_out[CFL_PRED_U] != CFL_SIGN_ZERO)
+  if (sign_u != CFL_SIGN_ZERO)
     ind +=
-        aom_read_symbol(r, ec_ctx->cfl_alpha_cdf[js][0], 16, "cfl:alpha") << 4;
-  if (signs_out[CFL_PRED_V] != CFL_SIGN_ZERO)
+        aom_read_symbol(r, ec_ctx->cfl_alpha_cdf[js][CFL_PRED_U], 16, "cfl:alpha") << 4;
+  if (sign_v != CFL_SIGN_ZERO)
     ind +=
-        aom_read_symbol(r, ec_ctx->cfl_alpha_cdf[js][1], 16, "cfl:alpha");
+        aom_read_symbol(r, ec_ctx->cfl_alpha_cdf[js][CFL_PRED_V], 16, "cfl:alpha");
 
+#if 0
+  int a_u = cfl_idx_to_alpha(ind, sign_u, CFL_PRED_U);
+  int a_v = cfl_idx_to_alpha(ind, sign_v, CFL_PRED_V);
+  printf("%d %d\n", a_u, a_v);
+#endif
   return ind;
 }
 #endif
