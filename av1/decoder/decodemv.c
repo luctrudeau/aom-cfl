@@ -179,18 +179,20 @@ static INLINE int cfl_idx_to_alpha(int alpha_idx, CFL_SIGN_TYPE alpha_sign,
 
 static int read_cfl_alphas(FRAME_CONTEXT *const ec_ctx, aom_reader *r,
                            CFL_SIGN_TYPE signs_out[CFL_PRED_PLANES]) {
-  int js = aom_read_symbol(r, ec_ctx->cfl_sign_cdf, CFL_JOINT_SIGNS, "cfl:sign");
+  int js =
+      aom_read_symbol(r, ec_ctx->cfl_sign_cdf, CFL_JOINT_SIGNS, "cfl:signs");
   int ind = 0;
   int sign_u = signs_out[CFL_PRED_U] = (js / CFL_SIGNS);
   int sign_v = signs_out[CFL_PRED_V] = (js % CFL_SIGNS);
 
   // Magnitudes are only coded for nonzero values
   if (sign_u != CFL_SIGN_ZERO)
-    ind +=
-        aom_read_symbol(r, ec_ctx->cfl_alpha_cdf[js][CFL_PRED_U], 16, "cfl:alpha") << 4;
+    ind += aom_read_symbol(r, ec_ctx->cfl_alpha_cdf[js][CFL_PRED_U],
+                           UV_ALPHABET_SIZE, "cfl:alpha_u")
+           << 4;
   if (sign_v != CFL_SIGN_ZERO)
-    ind +=
-        aom_read_symbol(r, ec_ctx->cfl_alpha_cdf[js][CFL_PRED_V], 16, "cfl:alpha");
+    ind += aom_read_symbol(r, ec_ctx->cfl_alpha_cdf[js][CFL_PRED_V],
+                           UV_ALPHABET_SIZE, "cfl:alpha_v");
 
 #if 0
   int a_u = cfl_idx_to_alpha(ind, sign_u, CFL_PRED_U);
